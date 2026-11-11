@@ -1,23 +1,21 @@
-/** The store. Paper, the name typed once, the box, then the pieces. Nothing else. */
+/** The store. A quiet room off the account page: the name typed once, the box, then the pieces. Nothing else. */
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { fromPrice, pieces, products, sample, thumb } from '@/store/catalogue';
-import { useCartHeader } from '@/store/parts';
 import { usePersonal } from '@/store/state';
 import type { ProductId } from '@/store/types';
 import { useLive } from '@/store/useLive';
 import { color, gutter, radius, space } from '@/theme';
-import { Field, Header, Press, Price, Screen, Text, useLayoutClass } from '@/ui';
+import { Field, Press, Price, Screen, Text, useLayoutClass } from '@/ui';
 
-export default function StoreTab() {
+export default function StoreScreen() {
   const router = useRouter();
   const live = useLive();
   const { isTwoPane } = useLayoutClass();
   const name = usePersonal((s) => s.name);
   const setPersonal = usePersonal((s) => s.set);
-  const header = useCartHeader();
   const open = (id: ProductId) => router.push({ pathname: '/product/[id]', params: { id } });
 
   const intro = (
@@ -70,7 +68,7 @@ export default function StoreTab() {
   );
 
   return (
-    <Screen header={<Header {...header} />} edges={['left', 'right']} maxWidth={isTwoPane ? 1120 : 720}>
+    <Screen edges={['left', 'right', 'bottom']} maxWidth={isTwoPane ? 1120 : 720}>
       {isTwoPane ? (
         <View style={styles.two}>
           <View style={{ flex: 1.1, gap: space[10] }}>{intro}{kit}</View>

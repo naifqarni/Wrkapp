@@ -1,7 +1,7 @@
 /** Order flow: create the order, pay, confirm. Works against the shop when configured, otherwise locally (demo). */
 import { Platform } from 'react-native';
 
-import { config, hasWoo, shipping } from '@/config';
+import { config, hasWoo, links, shipping } from '@/config';
 
 import { products } from './catalogue';
 import { cartCount, cartTotal, useCart, useOrders, type Profile } from './state';
@@ -31,7 +31,7 @@ export async function startOrder(lines: CartLine[], who: Profile): Promise<Start
 /** Where Moyasar sends the shopper after 3-D Secure. Native intercepts it inside the WebView; web lands on /checkout/return. */
 export function callbackUrlFor(orderId: string): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') return `${window.location.origin}/checkout/return?order=${encodeURIComponent(orderId)}`;
-  return `${config.wooBaseUrl || 'https://shop.ranlab.dev'}/wrk-app-return?order=${encodeURIComponent(orderId)}`;
+  return `${config.wooBaseUrl || links.store}/wrk-app-return?order=${encodeURIComponent(orderId)}`;
 }
 
 export function payDescription(order: Order): string {
