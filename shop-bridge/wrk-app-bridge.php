@@ -7,6 +7,7 @@
  *
  * Setup (wp-config.php):
  *   define('WRK_MOYASAR_SECRET', 'sk_test_...');   // Moyasar SECRET key, used only on the server to verify payments
+ *   define('WRK_APP_BRIDGE_SECRET', '<long random string>');   // shared with the community backend (SHOP_BRIDGE_SECRET)
  * Optional:
  *   define('WRK_APP_SHIPPING_FEE', 0);             // SAR, flat. Default 0: delivery is included in the price
  *   define('WRK_APP_FREE_SHIPPING_FROM', 0);       // SAR, subtotal from which shipping is free
@@ -15,6 +16,8 @@
  *   POST /app/order                 create a pending order. Prices always come from WooCommerce, never from the app.
  *   POST /app/order/<id>/paid       { key, payment_id }  verify with Moyasar, then payment_complete()
  *   GET  /app/order/<id>?key=...    status for the app's order screen
+ *   POST /app/buyer                 { email } -> { buyer: bool }. Server to server only (community sign-up), needs
+ *                                   the header X-Wrk-Bridge-Secret equal to WRK_APP_BRIDGE_SECRET from wp-config.php
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -29,6 +32,11 @@ add_action('rest_api_init', function () {
         'methods' => 'POST',
         'callback' => 'wrk_app_order_paid',
         'permission_callback' => '__return_true',
+    ]);
+    register_rest_route('wrk/v1', '/app/buyer', [
+        'methods' => 'POST',
+        'callback' => 'wrk_app_is_buyer',
+        'permission_callback' => 'wrk_app_bridge_secret_ok',
     ]);
     register_rest_route('wrk/v1', '/app/order/(?P<id>\d+)', [
         'methods' => 'GET',
@@ -220,4 +228,21 @@ function wrk_app_order_paid(WP_REST_Request $req) {
     $order->payment_complete($payment_id);
     $order->add_order_note('wrk. app: paid with Moyasar payment ' . $payment_id . '.');
     return rest_ensure_response(wrk_app_status_of(wc_get_order($order->get_id())));
+}
+
+/** Only the community backend may ask who is a buyer: it sends the shared secret. Never called by the app itself. */
+function wrk_app_bridge_secret_ok(WP_REST_Request $req) {
+    if (!defined('WRK_APP_BRIDGE_SECRET') || strlen((string) WRK_APP_BRIDGE_SECRET) < 24) { return false; }
+    $given = (string) $req->get_header('x_wrk_bridge_secret');
+    return $given !== '' && hash_equals((string) WRK_APP_BRIDGE_SECRET, $given);
+}
+
+/** True when a paid order (processing or completed) exists with this billing email. */
+function wrk_app_is_buyer(WP_REST_Request $req) {
+    if (!function_exists('wc_get_orders')) { return wrk_app_error('wrk_no_woo', 'WooCommerce is not active.', 500); }
+    $p = $req->get_json_params();
+    $email = sanitize_email(strtolower(trim((string) ($p['email'] ?? ''))));
+    if ($email === '' || !is_email($email)) { return rest_ensure_response(['buyer' => false]); }
+    $ids = wc_get_orders(['limit' => 1, 'return' => 'ids', 'billing_email' => $email, 'status' => ['wc-processing', 'wc-completed']]);
+    return rest_ensure_response(['buyer' => !empty($ids)]);
 }

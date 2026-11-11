@@ -21,6 +21,6 @@ export { ToastProvider, useToast, type ToastOptions } from './Toast';
 export { GlassSurface, hasLiquidGlass, type GlassSurfaceProps } from './GlassSurface';
 export { OrderProgress, type OrderProgressProps } from './OrderProgress';
 export { haptic, setHapticsEnabled, type HapticName } from './haptics';
-export { stackBase, stackHeader, sheetRoute, modalRoute } from './native-options';
+export { stackBase, stackHeader, sheetRoute, modalRoute, cartHeaderItem } from './native-options';
 // Layout lives in src/layout; re-exported so screens can import everything from '@/ui'.
 export { TwoPane, useTwoPane, TabletopSplit, Columns, LayoutProvider, useLayoutClass, useResponsive, setupRTL, isRTL, ltr } from '../layout';

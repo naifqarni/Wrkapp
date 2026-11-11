@@ -9,7 +9,7 @@ import type { ChannelId } from '../api/types';
 import { BadgeMark } from '../components/BadgeMark';
 import { Page } from '../components/Page';
 import { ConfirmSheet } from '../components/SafetySheet';
-import { errorText, useCreatePost } from '../state/hooks';
+import { errorCode, errorText, useCreatePost } from '../state/hooks';
 import { useSession } from '../state/session';
 import { Button, Chip, color, font, Hairline, haptic, inputRTL, Num, space, T, toast } from '../ui/kit';
 
@@ -27,7 +27,9 @@ export function ComposeScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ channel?: string }>();
   const { me, ready } = useSession();
-  const initial = ORDER.includes(params.channel as ChannelId) ? (params.channel as ChannelId) : 'company';
+  const hasCompany = !!me?.companyName;
+  const asked = ORDER.includes(params.channel as ChannelId) ? (params.channel as ChannelId) : 'company';
+  const initial: ChannelId = asked === 'company' && !hasCompany ? 'all' : asked;
   const [channel, setChannel] = useState<ChannelId>(initial);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +37,10 @@ export function ComposeScreen() {
   const create = useCreatePost();
   const personal = useMemo(() => looksPersonal(text), [text]);
 
-  if (ready && !me) return <Redirect href="/community/verify" />;
+  if (ready && !me) return <Redirect href="/" />;
   if (ready && me && !me.acceptedRulesAt) return <Redirect href="/community/rules" />;
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/community'));
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const tryClose = () => (text.trim() ? setConfirmDiscard(true) : close());
   const publish = () => {
     const body = text.trim();
@@ -53,7 +55,7 @@ export function ComposeScreen() {
           close();
         },
         onError: (e) => {
-          haptic.error();
+          errorCode(e) === 'filtered' ? haptic.warning() : haptic.error();
           setError(errorText(e));
         },
       },
@@ -65,8 +67,8 @@ export function ComposeScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={64}>
         <View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: space.gutter, gap: 8, paddingVertical: 12 }}>
-            {ORDER.map((id) => (
-              <Chip key={id} testID={`compose-channel-${id}`} label={id === 'company' && me ? me.companyName : s.channels[id]} selected={id === channel} onPress={() => setChannel(id)} />
+            {ORDER.filter((id) => id !== 'company' || hasCompany).map((id) => (
+              <Chip key={id} testID={`compose-channel-${id}`} label={id === 'company' && me?.companyName ? me.companyName : s.channels[id]} selected={id === channel} onPress={() => setChannel(id)} />
             ))}
           </ScrollView>
           <Hairline />

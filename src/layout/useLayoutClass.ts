@@ -13,7 +13,7 @@
  */
 import * as React from 'react';
 import { useWindowDimensions } from 'react-native';
-import { useHinge, type Hinge } from 'expo-hinge';
+import { addHingeListener, getHinge, type Hinge } from 'expo-hinge';
 import { breakpoint } from '../theme';
 import { LayoutContext, type FoldRect } from './LayoutProvider';
 
@@ -57,25 +57,53 @@ export function postureFor(hinge: Hinge | null, fold: FoldRect | null, width: nu
   return orientation === 'horizontal' ? 'tabletop' : 'book';
 }
 
+/** Hinge angle in 10 degree steps: enough to tell postures apart without re-rendering on every degree. */
+function quantise(hinge: Hinge | null): Hinge | null {
+  return hinge ? { status: hinge.status, angle: Math.round(hinge.angle / 10) * 10 } : null;
+}
+
+/**
+ * The hinge, updated only when its status or its angle step changes. (expo-hinge's own `useHinge`
+ * re-renders on every reported angle, which is too often for a hook used by every screen. For an
+ * effect that follows the hinge smoothly, use `useAnimatedHinge` from 'expo-hinge/reanimated'.)
+ */
+export function useHingeStep(): Hinge | null {
+  const [hinge, setHinge] = React.useState<Hinge | null>(() => quantise(getHinge()));
+  React.useEffect(() => {
+    const apply = (next: Hinge | null) => {
+      const q = quantise(next);
+      setHinge((prev) => (prev?.status === q?.status && prev?.angle === q?.angle ? prev : q));
+    };
+    apply(getHinge());
+    const sub = addHingeListener((event) => apply(event.hinge));
+    return () => sub.remove();
+  }, []);
+  return hinge;
+}
+
 export function useLayoutClass(): LayoutClass {
   const { width, height } = useWindowDimensions();
   const ctx = React.useContext(LayoutContext);
-  const liveHinge = useHinge();
+  const liveHinge = useHingeStep();
   const hinge = ctx.simulate?.hinge !== undefined ? ctx.simulate.hinge : liveHinge;
   const fold = ctx.fold;
-  return React.useMemo(
-    () => ({
+  return React.useMemo(() => {
+    const posture = postureFor(hinge, fold, width, height);
+    // An open foldable with a vertical fold always has room for two panes, one per half, even if the
+    // unfolded window is a little narrower than the 700pt breakpoint.
+    const spansFold =
+      !!fold && fold.orientation === 'vertical' && (posture === 'flat' || posture === 'book') && fold.x >= 260 && width - (fold.x + fold.width) >= 260;
+    return {
       width,
       height,
       widthClass: widthClassFor(width),
-      isTwoPane: width >= breakpoint.twoPane,
+      isTwoPane: width >= breakpoint.twoPane || spansFold,
       isLandscape: width > height,
       hinge,
       fold,
-      posture: postureFor(hinge, fold, width, height),
-    }),
-    [width, height, hinge, fold]
-  );
+      posture,
+    };
+  }, [width, height, hinge, fold]);
 }
 
 /** Pick a value by width class. `pick({ compact: 2, medium: 3, expanded: 4 })`. */

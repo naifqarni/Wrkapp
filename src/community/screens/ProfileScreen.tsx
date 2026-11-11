@@ -3,7 +3,7 @@
  * The badge is the same badge holder wrk. sells, carrying a name nobody can read.
  */
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,10 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { community as s } from '@/i18n/community';
 
 import { getCommunityApi } from '../api';
+import { canAddWorkEmail } from '../api/access';
+import { InviteList } from '../components/InviteList';
 import { BadgeMark } from '../components/BadgeMark';
 import { Page } from '../components/Page';
 import { ConfirmSheet } from '../components/SafetySheet';
-import { Notice } from '../components/States';
 import { errorText, hasNotifications, useUpdateMe } from '../state/hooks';
 import { useSession } from '../state/session';
 import { Button, color, Hairline, Icon, Num, Row, space, T, toast, Toggle } from '../ui/kit';
@@ -33,11 +34,7 @@ export function ProfileScreen() {
   const canExport = typeof getCommunityApi().exportMyData === 'function';
 
   if (ready && !me) {
-    return (
-      <Page title={s.profile.title}>
-        <Notice testID="profile-signed-out" title={s.profile.notVerified} body={s.profile.notVerifiedBody} action={s.gate.verify} onAction={() => router.push('/community/verify')} />
-      </Page>
-    );
+    return <Redirect href="/" />;
   }
   if (!me) return <Page title={s.profile.title}>{null}</Page>;
 
@@ -49,7 +46,7 @@ export function ProfileScreen() {
       await (kind === 'delete' ? api.deleteAccount() : api.signOut());
       useSession.getState().set(null);
       setAsk(null);
-      router.canGoBack() ? router.back() : router.replace('/community');
+      router.canGoBack() ? router.back() : router.replace('/');
     } catch (e) {
       toast(errorText(e));
     } finally {
@@ -75,8 +72,8 @@ export function ProfileScreen() {
           </View>
           <T v="title" testID="profile-handle">{me.handle}</T>
           <T v="caption" mute>
-            {me.companyName}
-            {members ? (
+            {me.companyName ?? s.profile.noCompany}
+            {members && me.companyName ? (
               <>
                 {' · '}
                 <Num>{members}</Num> {s.feed.members}
@@ -86,13 +83,24 @@ export function ProfileScreen() {
           <Button testID="new-handle" small variant="ghost" label={s.profile.newHandle} onPress={() => setAsk('handle')} />
         </View>
 
+        <InviteList />
+
         <Hairline />
-        <Row
-          label={s.profile.showCompany}
-          detail={me.showCompany ? null : s.verify.showCompanyOff}
-          end={<Toggle testID="profile-show-company" label={s.profile.showCompany} value={me.showCompany} onChange={(v) => update.mutate({ showCompany: v })} />}
-        />
-        <Hairline inset={space.gutter} />
+        {me.companyName ? (
+          <>
+            <Row
+              label={s.profile.showCompany}
+              detail={me.showCompany ? null : s.verify.showCompanyOff}
+              end={<Toggle testID="profile-show-company" label={s.profile.showCompany} value={me.showCompany} onChange={(v) => update.mutate({ showCompany: v })} />}
+            />
+            <Hairline inset={space.gutter} />
+          </>
+        ) : canAddWorkEmail() ? (
+          <>
+            <Row testID="row-add-work" label={s.profile.addWork} detail={s.profile.addWorkDetail} onPress={() => router.push({ pathname: '/community/verify', params: { mode: 'work' } })} end={<Chevron />} />
+            <Hairline inset={space.gutter} />
+          </>
+        ) : null}
         <Row testID="row-mine" label={s.profile.myPosts} onPress={() => router.push('/community/mine')} end={<Chevron />} />
         {hasNotifications() ? (
           <>

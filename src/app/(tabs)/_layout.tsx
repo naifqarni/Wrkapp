@@ -1,21 +1,26 @@
 /**
- * The tab bar is the system's own, on purpose:
- * - iOS 26 and later: the floating Liquid Glass bar. It shrinks while you scroll down, and on a wide
- *   window (iPad, iPhone Duo open in landscape) the system may move it to the top or the side rail.
+ * Tabs: المجتمع (opens first), المتجر, حسابي.
+ *
+ * The tab bar is the system's own, with nothing that pins or overrides where the system puts it:
+ * - iOS 26 and later: the floating Liquid Glass bar; it shrinks while you scroll down.
+ * - iPhone Duo (needs a build made with the iOS 27.1 SDK): iOS itself moves the tabs and the native
+ *   header buttons into the side rail on the right. We pass no `sidebarAdaptable` and no
+ *   `preferredPlacement`, so expo-router sets UIKit's tabBarController mode to `automatic`
+ *   (native-tabs/NativeTabsView.ios.js) and the system decides. Do not add those props, a custom JS
+ *   tab bar, or a fixed bottom offset for the bar: each of them fights the rail.
  * - Android: the Material 3 navigation bar with the pill indicator and predictive back.
- * - Web: expo-router draws its own pill; `WEB_BAR` below moves it to the bottom, puts it in RTL order
- *   and gives it the brand surface, so the preview matches the phone.
- * No custom JS bar: an imitation cannot follow the Duo rail, Dynamic Type or the system's own animations.
+ * - Web: expo-router draws its own pill; `WEB_BAR` moves it to the bottom in RTL order.
  */
-import { NativeTabs } from "expo-router/native-tabs";
-import { Platform } from "react-native";
+import { NativeTabs } from 'expo-router/native-tabs';
+import { Platform } from 'react-native';
 
-import { config } from "@/config";
-import { ar } from "@/i18n/ar";
-import { color, font } from "@/theme";
-import { haptic } from "@/ui/haptics";
+import { config } from '@/config';
+import { ar } from '@/i18n/ar';
+import { color, font } from '@/theme';
+import { haptic } from '@/ui/haptics';
 
-const android = Platform.OS === "android";
+const android = Platform.OS === 'android';
+const web = Platform.OS === 'web';
 
 const WEB_BAR = `
 div[dir="ltr"][data-orientation="horizontal"]{direction:rtl;background:${color.paper}}
@@ -28,59 +33,46 @@ div[dir="ltr"][data-orientation="horizontal"]{direction:rtl;background:${color.p
 [role="tablist"][aria-label="Main"] [role="tab"] span{font-family:${font.body},system-ui,sans-serif!important;font-size:13px!important;font-weight:300!important;color:${color.mute}!important}
 [role="tablist"][aria-label="Main"] [role="tab"][data-state="active"] span{font-family:${font.bodyMedium},system-ui,sans-serif!important;color:${color.ink}!important}
 `;
-
 export default function TabsLayout() {
   return (
     <>
-      {Platform.OS === "web" ? <style>{WEB_BAR}</style> : null}
-      <NativeTabs
-        tintColor={color.ink}
-        iconColor={{ default: color.mute, selected: color.ink }}
-        labelStyle={{
-          default: { fontFamily: font.body, fontSize: 11, color: color.mute },
-          selected: {
-            fontFamily: font.bodyMedium,
-            fontSize: 11,
-            color: color.ink,
-          },
-        }}
-        // iOS: leave the background to the system so Liquid Glass shows the paper through it.
-        backgroundColor={android ? color.stock : undefined}
-        indicatorColor={android ? color.line : undefined}
-        rippleColor={android ? color.pressOnPaper : undefined}
-        labelVisibilityMode={android ? "labeled" : undefined}
-        minimizeBehavior="onScrollDown"
-        preferredPlacement="automatic"
-        sidebarAdaptable
-        screenListeners={{ tabPress: () => haptic.select() }}
-      >
-        <NativeTabs.Trigger name="index">
-          <NativeTabs.Trigger.Label>{ar.tabs.store}</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "shippingbox", selected: "shippingbox.fill" }}
-            md="inventory_2"
-          />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="community" hidden={!config.communityEnabled}>
-          <NativeTabs.Trigger.Label>
-            {ar.tabs.community}
-          </NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon
-            sf={{
-              default: "bubble.left.and.bubble.right",
-              selected: "bubble.left.and.bubble.right.fill",
-            }}
-            md="forum"
-          />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="account">
-          <NativeTabs.Trigger.Label>{ar.tabs.account}</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "person", selected: "person.fill" }}
-            md="person"
-          />
-        </NativeTabs.Trigger>
-      </NativeTabs>
+      {web ? <style>{WEB_BAR}</style> : null}
+      <Tabs />
     </>
+  );
+}
+
+function Tabs() {
+  return (
+    <NativeTabs
+      tintColor={color.ink}
+      iconColor={{ default: color.mute, selected: color.ink }}
+      labelStyle={{
+        default: { fontFamily: font.body, fontSize: 11, color: color.mute },
+        selected: { fontFamily: font.bodyMedium, fontSize: 11, color: color.ink },
+      }}
+      // iOS: leave the background to the system so Liquid Glass shows the paper through it.
+      backgroundColor={android ? color.stock : undefined}
+      indicatorColor={android ? color.line : undefined}
+      rippleColor={android ? color.pressOnPaper : undefined}
+      labelVisibilityMode={android ? 'labeled' : undefined}
+      minimizeBehavior="onScrollDown"
+      screenListeners={{ tabPress: () => haptic.select() }}>
+      <NativeTabs.Trigger name="index" hidden={!config.communityEnabled}>
+        <NativeTabs.Trigger.Label>{ar.tabs.community}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }}
+          md="forum"
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="store">
+        <NativeTabs.Trigger.Label>{ar.tabs.store}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'shippingbox', selected: 'shippingbox.fill' }} md="inventory_2" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="account">
+        <NativeTabs.Trigger.Label>{ar.tabs.account}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }

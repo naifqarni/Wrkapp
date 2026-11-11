@@ -28,7 +28,7 @@ export function LikeDot({ liked, count, onToggle, testID }: { liked: boolean; co
       accessibilityState={{ selected: liked }}
       hitSlop={10}
       onPress={() => {
-        liked ? haptic.tap() : haptic.setDown();
+        haptic.select();
         onToggle();
       }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36, paddingEnd: 6 }}>

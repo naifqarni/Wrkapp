@@ -52,3 +52,27 @@ export const modalRoute: ScreenOptions = {
   gestureEnabled: false,
   contentStyle: { backgroundColor: color.paper },
 };
+
+/**
+ * The cart as a NATIVE header button (iOS). A custom React view in `headerRight` is left out of the
+ * iPhone Duo side rail; a native item is moved into it by the system, and gets Liquid Glass.
+ *
+ *   <Stack.Screen name="product/[id]" options={{ ...stackHeader, ...cartHeaderItem({ count, onPress, label }) }} />
+ *
+ * Android and web ignore it, so keep `headerRight` as the fallback there.
+ */
+export function cartHeaderItem({ count, onPress, label }: { count: number; onPress: () => void; label: string }): ScreenOptions {
+  return {
+    unstable_headerRightItems: () => [
+      {
+        type: 'button',
+        label,
+        accessibilityLabel: label,
+        icon: { type: 'sfSymbol', name: count > 0 ? 'bag.fill' : 'bag' },
+        tintColor: color.ink,
+        onPress,
+        ...(count > 0 ? { badge: { value: count, style: { backgroundColor: color.black, color: color.onBlack } } } : null),
+      },
+    ],
+  };
+}

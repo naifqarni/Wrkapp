@@ -49,14 +49,14 @@ export default function CheckoutScreen() {
   const started = useRef<{ sig: string; value: Started } | null>(null);
 
   if (lines.length === 0) {
-    return <Screen><EmptyState title="السلة فارغة." action={{ label: 'القطع', onPress: () => router.replace('/') }} style={{ marginTop: space[16] }} /></Screen>;
+    return <Screen><EmptyState title="السلة فارغة." action={{ label: 'القطع', onPress: () => router.replace('/store') }} style={{ marginTop: space[16] }} /></Screen>;
   }
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (profile.fullName.trim().length < 3) e.fullName = 'اكتب اسم المستلم.';
     if (!normalizeMobile(profile.mobile)) e.mobile = 'رقم الجوال هكذا: 05XXXXXXXX';
-    if (profile.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(profile.email.trim())) e.email = 'البريد غير صحيح.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(profile.email.trim())) e.email = 'اكتب بريدك. به تدخل مجتمع wrk. بعد الشراء.';
     if (profile.city.trim().length < 2) e.city = 'اكتب المدينة.';
     if (profile.district.trim().length < 2) e.district = 'اكتب الحي.';
     if (profile.street.trim().length < 2) e.street = 'اكتب الشارع.';
@@ -71,7 +71,7 @@ export default function CheckoutScreen() {
   const done = async (orderId: string, paymentId: string) => {
     await finishPaid(orderId, paymentId);
     haptic.success();
-    router.dismissTo('/');
+    router.dismissTo('/store');
     router.push({ pathname: '/order/[id]', params: { id: orderId, fresh: '1' } });
   };
 
@@ -140,7 +140,7 @@ export default function CheckoutScreen() {
         <Field label="الاسم الكامل" value={profile.fullName} onChangeText={(v) => { profile.set({ fullName: v }); fix('fullName'); }} error={errors.fullName} autoComplete="name" textContentType="name" maxLength={60} />
         <Field label="الجوال" ltr value={profile.mobile} onChangeText={(v) => { profile.set({ mobile: v }); fix('mobile'); }} error={errors.mobile} placeholder="05XXXXXXXX"
           keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" maxLength={16} />
-        <Field label="البريد (اختياري)" ltr value={profile.email} onChangeText={(v) => { profile.set({ email: v }); fix('email'); }} error={errors.email}
+        <Field label="البريد" ltr value={profile.email} onChangeText={(v) => { profile.set({ email: v }); fix('email'); }} error={errors.email}
           keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" maxLength={80} />
       </Section>
 

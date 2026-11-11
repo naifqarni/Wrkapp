@@ -12,6 +12,12 @@ Moyasar (with the secret key, on the server) whether that payment is real, for t
 3. Optional: `WRK_APP_SHIPPING_FEE` and `WRK_APP_FREE_SHIPPING_FROM` (both default 0: delivery is included in the price).
 4. In the app's `.env`: `EXPO_PUBLIC_WOO_BASE_URL=https://shop.ranlab.dev` and `EXPO_PUBLIC_MOYASAR_PUBLISHABLE_KEY=pk_test_...`.
 
+## Community sign-up by purchase
+The community lets buyers in by their order email. Its backend (never the app) asks the shop:
+`POST /wp-json/wrk/v1/app/buyer` with header `X-Wrk-Bridge-Secret` and body `{"email":"..."}` -> `{"buyer":true}`.
+Add `define('WRK_APP_BRIDGE_SECRET', '<long random string, 24+ chars>');` to wp-config.php and give the same value to the
+community backend as `SHOP_BRIDGE_SECRET`. Without the define the route refuses every call.
+
 ## Check
 ```
 curl -s -X POST https://shop.ranlab.dev/wp-json/wrk/v1/app/order -H 'Content-Type: application/json' -d '{

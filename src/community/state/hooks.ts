@@ -317,7 +317,8 @@ export function useMemberGate() {
   return useCallback(
     (opts: { rules?: boolean } = { rules: true }): boolean => {
       if (!me) {
-        router.push('/community/verify');
+        // Not a member: the community tab itself is the door.
+        router.replace('/');
         return false;
       }
       if (opts.rules !== false && !me.acceptedRulesAt) {

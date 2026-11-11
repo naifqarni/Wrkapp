@@ -9,10 +9,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { syncOrders } from '@/native';
-import { CartMark } from '@/store/parts';
+import { CartMark, useCartHeader } from '@/store/parts';
 import { useOrders } from '@/store/state';
 import { color, useWrkFonts } from '@/theme';
-import { LayoutProvider, ToastProvider, modalRoute as modalRouteRaw, stackBase as stackBaseRaw, stackHeader as stackHeaderRaw } from '@/ui';
+import { LayoutProvider, ToastProvider, cartHeaderItem, modalRoute as modalRouteRaw, stackBase as stackBaseRaw, stackHeader as stackHeaderRaw } from '@/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -50,6 +50,12 @@ export default function RootLayout() {
   const orders = useOrders((s) => s.orders);
   useEffect(() => { void syncOrders(orders); }, [orders]);
 
+  // The cart in the product header. iOS gets a native item, so the system can move it into the iPhone Duo side rail.
+  const cartHeader = useCartHeader();
+  const cartOptions = (Platform.OS === 'ios'
+    ? cartHeaderItem({ count: cartHeader.cartCount, onPress: cartHeader.onPressCart, label: cartHeader.cartLabel })
+    : { headerRight: cart }) as NativeStackNavigationOptions;
+
   if (!fontsReady) return null;
 
   return (
@@ -63,7 +69,7 @@ export default function RootLayout() {
                 <Stack screenOptions={stackBase}>
                   <Stack.Screen name="(tabs)" />
                   {/* store (lead) */}
-                  <Stack.Screen name="product/[id]" options={{ ...stackHeader, title: '', headerRight: cart }} />
+                  <Stack.Screen name="product/[id]" options={{ ...stackHeader, title: '', ...cartOptions }} />
                   <Stack.Screen name="cart" options={{ ...stackHeader, title: 'السلة', presentation: 'modal' }} />
                   <Stack.Screen name="checkout/index" options={{ ...stackHeader, title: 'الدفع' }} />
                   <Stack.Screen name="checkout/pay" options={modalRoute} />

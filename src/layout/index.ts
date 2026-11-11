@@ -2,6 +2,7 @@ export { LayoutProvider, type FoldRect, type LayoutSimulation, type LayoutProvid
 export {
   useLayoutClass,
   useResponsive,
+  useHingeStep,
   widthClassFor,
   postureFor,
   type LayoutClass,

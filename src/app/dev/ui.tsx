@@ -3,7 +3,7 @@
  * Open /dev/ui. Add ?fold=v (vertical fold), ?fold=h (tabletop) or ?pane=1 to simulate.
  * Development only; nothing links here.
  */
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -239,6 +239,8 @@ function TabletopDemo() {
 export default function DevUi() {
   const params = useLocalSearchParams<{ fold?: string; pane?: string; w?: string; h?: string }>();
   const { width, height } = useLayoutClass();
+  // Development builds only. A release build sends anyone who lands here back to the app.
+  if (!__DEV__ && process.env.EXPO_PUBLIC_DEV_GALLERY !== '1') return <Redirect href="/" />;
   let simulate: LayoutSimulation | null = null;
   if (params.fold === 'v') {
     simulate = {

@@ -9,7 +9,7 @@ import { config } from '@/config';
 import { fmtDate, piecesLabel, statusLabel } from '@/store/format';
 import { Section, useCartHeader } from '@/store/parts';
 import { useOrders, useProfile } from '@/store/state';
-import { space } from '@/theme';
+import { gutter, space } from '@/theme';
 import { Header, ListRow, Num, Screen, Text } from '@/ui';
 
 export default function AccountScreen() {
@@ -34,7 +34,7 @@ export default function AccountScreen() {
           {header.cartCount > 0 ? <ListRow padded={false} chevron title="السلة" trailing={<Num>{String(header.cartCount)}</Num>} onPress={header.onPressCart} /> : null}
         </Section>
 
-        {config.communityEnabled ? <CommunityAccountSection /> : null}
+        {config.communityEnabled ? <View style={{ marginTop: space[8], marginHorizontal: -gutter }}><CommunityAccountSection /></View> : null}
 
         <Section title="wrk." gap={0}>
           <ListRow padded={false} chevron title="للشركات" subtitle="طقم لكل موظف جديد" onPress={() => { WebBrowser.openBrowserAsync('https://shop.ranlab.dev/business').catch(() => {}); }} />

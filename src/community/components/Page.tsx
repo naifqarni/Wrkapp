@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import React from 'react';
 import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -6,6 +6,7 @@ import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
 import { community as s } from '@/i18n/community';
 
 import { useCommunityBoot } from '../state/hooks';
+import { useSession } from '../state/session';
 import { color, font, size, T, Tap, ToastLayer } from '../ui/kit';
 
 /**
@@ -21,6 +22,7 @@ export function Page({
   children,
   style,
   narrow = true,
+  open,
 }: {
   title: string;
   modal?: boolean;
@@ -31,10 +33,14 @@ export function Page({
   style?: StyleProp<ViewStyle>;
   /** Keep content in a readable column on wide screens. */
   narrow?: boolean;
+  /** Reachable without being a member (joining, the rules). Everything else sends a visitor to the door. */
+  open?: boolean;
 }) {
   useCommunityBoot();
+  const { me, ready } = useSession();
   const router = useRouter();
-  const close = onClose ?? (() => (router.canGoBack() ? router.back() : router.replace('/community')));
+  const close = onClose ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
+  if (!open && ready && !me) return <Redirect href="/" />;
   return (
     <View style={[{ flex: 1, backgroundColor: color.paper }, style]}>
       <Stack.Screen

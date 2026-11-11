@@ -27,7 +27,7 @@ export function RulesScreen() {
       const next = await getCommunityApi().acceptRules();
       useSession.getState().set(next);
       haptic.success();
-      router.canGoBack() ? router.back() : router.replace('/community');
+      router.canGoBack() ? router.back() : router.replace('/');
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -36,7 +36,7 @@ export function RulesScreen() {
   };
   const d = me?.acceptedRulesAt ? fullDate(me.acceptedRulesAt) : null;
   return (
-    <Page title={s.rules.title} modal sheet>
+    <Page title={s.rules.title} modal sheet open>
       <ScrollView contentContainerStyle={{ padding: space.gutter, paddingTop: 20, paddingBottom: 32 }}>
         <RulesBody />
       </ScrollView>

@@ -66,7 +66,7 @@ export function TwoPane({ list, detail, showDetail, empty, listWidth, single, st
   let startWidth = listWidth ?? Math.min(420, Math.max(320, Math.round(width * 0.4)));
   let seam = hairline;
   let seamVisible = true;
-  if (fold && fold.orientation === 'vertical' && fold.x > 200 && fold.x + fold.width < width - 200) {
+  if (fold && fold.orientation === 'vertical' && fold.x >= 240 && fold.x + fold.width <= width - 240) {
     // The list is the START pane: on the right in RTL, on the left in LTR.
     startWidth = rtl ? width - (fold.x + fold.width) : fold.x;
     seam = Math.max(fold.width, fold.occludes ? fold.width : hairline);

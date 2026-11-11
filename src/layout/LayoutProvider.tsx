@@ -31,6 +31,7 @@ interface Ctx {
 
 export const LayoutContext = React.createContext<Ctx>({ fold: null, simulate: null });
 
+
 function FoldReader({ simulate, children }: { simulate: LayoutSimulation | null; children: React.ReactNode }) {
   const regions = useReservedRegions();
   const value = React.useMemo<Ctx>(() => {

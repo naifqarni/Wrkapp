@@ -1,6 +1,6 @@
 # wrk. app
 
-iOS and Android app for wrk.: the store (المتجر), the work community (المجتمع) and the account (حسابي).
+iOS and Android app for wrk.: the work community (المجتمع, members only, opens first), the store (المتجر) and the account (حسابي).
 Arabic, right-to-left, light mode. Expo SDK 58, React Native 0.88, TypeScript, expo-router.
 
 ## Run it
@@ -32,10 +32,26 @@ Checks: `npm run typecheck`, `npm test`, `npm run build:web`.
 With no payment key the checkout is in demo mode: any valid card number (for example 4111 1111 1111 1111) "pays",
 a number ending 0002 is declined, and nothing is charged.
 
+## Going live
+
+The app is complete without these; each one switches a part from its stand-in to the real service.
+
+1. Payment: put the Moyasar publishable key in `EXPO_PUBLIC_MOYASAR_PUBLISHABLE_KEY`, and the secret key as
+   `WRK_MOYASAR_SECRET` in the shop's wp-config.php. Until then checkout says it is in demo mode.
+2. Community: create the Supabase project from `backend/` (its README has the steps), set
+   `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and give the backend `SHOP_URL` and
+   `SHOP_BRIDGE_SECRET` (the same value as `WRK_APP_BRIDGE_SECRET` in wp-config.php). Until then the community runs
+   on sample data inside the app.
+3. First members: `select * from private.mint_invites(null, 10, 'launch');` in Supabase gives the first invitation
+   codes. After that each member has 3 invitations, and anyone who bought from the shop joins with the order's email.
+
+The community is members only: by invitation, or with the email of a shop order. Checkout asks for the email for
+that reason.
+
 ## Layout of the code
 
 ```
-src/app/            routes (expo-router): (tabs)/index store, (tabs)/community, (tabs)/account, product/[id], cart, checkout, order/[id]
+src/app/            routes (expo-router): (tabs)/index community, (tabs)/store, (tabs)/account, product/[id], cart, checkout, order/[id]
 src/store/          catalogue, cart and personalisation state, shop client, Moyasar client, 3D viewer
 src/community/      community screens, state and API client
 src/ui, src/theme, src/layout   design system, tokens, foldable and large-screen layout

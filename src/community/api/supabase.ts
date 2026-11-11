@@ -2,9 +2,10 @@
  * Supabase implementation of the community contract.
  *
  * The app never reads or writes a table. Everything is a database function
- * (`rpc`) that checks who is asking, plus two edge functions for sign-in and
- * one for AI moderation. The work email is sent once to the sign-in function
- * and is not stored anywhere: not on the phone, not in the database.
+ * (`rpc`) that checks who is asking, plus edge functions for sign-in and AI
+ * moderation. The community is members-only: an invite code or a store purchase
+ * gets a new person in. The email is sent once to the sign-in function and is
+ * not stored anywhere: not on the phone, not in the database.
  *
  * This file has no React Native imports so it can be tested under Node with a
  * fake client; `index.ts` builds the real client.
@@ -18,6 +19,8 @@ import {
   type ChannelId,
   type Comment,
   type CommunityApi,
+  type Invite,
+  type SignInAccess,
   type CommunityErrorCode,
   type Me,
   type ModerationAction,
@@ -34,6 +37,7 @@ export type SupabaseLike = Pick<SupabaseClient, 'rpc' | 'functions' | 'auth'>;
 const KNOWN: readonly CommunityErrorCode[] = [
   'free-mail', 'invalid-email', 'bad-code', 'rate-limited', 'not-verified', 'rules-not-accepted',
   'filtered', 'not-found', 'forbidden', 'network', 'unknown',
+  'not-invited', 'invite-used', 'no-purchase', 'not-a-member',
 ];
 const isCode = (v: unknown): v is CommunityErrorCode => typeof v === 'string' && (KNOWN as readonly string[]).includes(v);
 const looksOffline = (msg: string) => /network request failed|failed to fetch|fetch failed|load failed|networkerror|timeout|aborted/i.test(msg);
@@ -139,18 +143,45 @@ export function createSupabaseCommunityApi(client: SupabaseLike): CommunityApi {
 
   const api: CommunityApi = {
     // ------------------------------------------------------------ identity
-    async requestEmailCode(workEmail) {
-      const out = await fn<{ devCode?: string }>('auth-request-code', { email: workEmail });
+    async requestEmailCode(email: string, access?: SignInAccess) {
+      const a: SignInAccess = access ?? { kind: 'member' };
+      const out = await fn<{ devCode?: string }>('auth-request-code', {
+        email,
+        access: a.kind,
+        ...(a.kind === 'invite' ? { inviteCode: a.code } : {}),
+      });
       // Only a test project started with DEV_ECHO_CODE=true answers with the code (no mail provider yet).
       if (out?.devCode) console.info(`[wrk] test sign-in code: ${out.devCode}`);
     },
 
-    async verifyEmailCode(workEmail, code) {
-      const out = await fn<{ tokenHash: string }>('auth-verify-code', { email: workEmail, code });
+    async verifyEmailCode(email, code) {
+      const out = await fn<{ tokenHash: string }>('auth-verify-code', { email, code });
       // exchange the one-time token for a session
       let res = await client.auth.verifyOtp({ token_hash: out.tokenHash, type: 'magiclink' });
       if (res.error) res = await client.auth.verifyOtp({ token_hash: out.tokenHash, type: 'email' });
       if (res.error) throw toError(res.error);
+      const me = await rpc<Me | null>('me');
+      if (!me) throw new CommunityError('forbidden');
+      emit(me);
+      return me;
+    },
+
+    async checkInvite(code) {
+      const out = await rpc<{ valid?: boolean } | null>('check_invite', { p_code: code });
+      return { valid: out?.valid === true };
+    },
+
+    async listMyInvites() {
+      return (await rpc<Invite[] | null>('list_my_invites')) ?? [];
+    },
+
+    async requestWorkEmailCode(workEmail) {
+      const out = await fn<{ devCode?: string }>('auth-work-email', { action: 'request', email: workEmail });
+      if (out?.devCode) console.info(`[wrk] test work-email code: ${out.devCode}`);
+    },
+
+    async verifyWorkEmailCode(workEmail, code) {
+      await fn('auth-work-email', { action: 'verify', email: workEmail, code });
       const me = await rpc<Me | null>('me');
       if (!me) throw new CommunityError('forbidden');
       emit(me);
@@ -298,6 +329,10 @@ export function createSupabaseCommunityApi(client: SupabaseLike): CommunityApi {
 
     async resolveModerationItem(id: string, action: ModerationAction, note?: string) {
       return rpc<ModerationItem>('mod_resolve', { p_item_id: id, p_action: action, p_note: note ?? null });
+    },
+
+    async createInvites(count, note) {
+      return (await rpc<Invite[] | null>('mod_create_invites', { p_count: count, p_note: note ?? null })) ?? [];
     },
   };
 

@@ -20,7 +20,7 @@ export default function OrderScreen() {
   useQuery({ queryKey: ['order', id], queryFn: async () => { await refreshOrder(id); return Date.now(); }, enabled: hasWoo() && !!order, refetchInterval: 60_000 });
 
   if (!order) {
-    return <Screen><EmptyState title="لم نجد هذا الطلب." action={{ label: 'القطع', onPress: () => router.replace('/') }} style={{ marginTop: space[16] }} /></Screen>;
+    return <Screen><EmptyState title="لم نجد هذا الطلب." action={{ label: 'القطع', onPress: () => router.replace('/store') }} style={{ marginTop: space[16] }} /></Screen>;
   }
   const closed = order.status === 'cancelled' || order.status === 'pending-payment';
 

@@ -37,7 +37,7 @@ export default function ReturnScreen() {
             <Button label="السلة" variant="ghost" onPress={() => router.replace('/cart')} />
           </>
         ) : !order ? (
-          <Button label="القطع" variant="ghost" onPress={() => router.replace('/')} />
+          <Button label="القطع" variant="ghost" onPress={() => router.replace('/store')} />
         ) : <ActivityIndicator color={color.ink} />}
       </View>
     </Screen>

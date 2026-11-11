@@ -3,8 +3,10 @@
  * It behaves like the real thing where the screens can tell the difference: free-mail rejection,
  * code checking, rules gate, text filter, blocks hiding content, cursor pages, small latency.
  *
- * Mock sign-in: any work email (not gmail/hotmail/...) and any 6-digit code except 000000.
- * An address that starts with "mod@" signs in as a moderator (shows the review queue).
+ * Members only. Ways in, same as the real service: an invite code (any code starting WRK-, except
+ * the used WRK-H2V8-RT5N), a purchase (an address containing "buyer"), or a returning member (an address that
+ * joined earlier in this run). Any 6-digit email code except 000000 is accepted.
+ * An address that starts with "mod@" joins as a moderator.
  */
 import {
   CommunityError,
@@ -153,6 +155,19 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
   const blocked = new Set<string>();
   const authListeners = new Set<(m: Me | null) => void>();
   const pendingCodes = new Map<string, number>();
+  const joined = new Set<string>();
+  const usedInvites = new Set<string>(['WRK-H2V8-RT5N']);
+  const pendingInvite = new Map<string, string>();
+  const pendingBuyer = new Set<string>();
+  const workCodes = new Set<string>();
+  const myInvites = [{ code: 'WRK-H2V8-RT5N', usedAt: iso(t0 - 4 * DAY) as string | null }, { code: 'WRK-7Q4K-2M9X', usedAt: null as string | null }, { code: 'WRK-D9X3-PA6E', usedAt: null as string | null }];
+  const inviteState = (raw: string) => {
+    const body = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^WRK/, '');
+    if (body.length !== 8) return fail('not-invited' as never);
+    const code = `WRK-${body.slice(0, 4)}-${body.slice(4)}`;
+    if (usedInvites.has(code)) return fail('invite-used' as never);
+    return code;
+  };
   let notifications: AppNotification[] = [];
 
   const seedNotifications = () => {
@@ -174,7 +189,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
 
   const author = (id: string): Author => {
     const m = members.get(id)!;
-    return { id, handle: m.handle, companyLabel: m.showCompany ? COMPANIES[m.companyId] ?? m.companyId : null };
+    return { id, handle: m.handle, companyLabel: m.showCompany && m.companyId ? COMPANIES[m.companyId] ?? m.companyId : null };
   };
   const toPost = (r: Row): Post => ({
     id: r.id,
@@ -224,13 +239,24 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
   ];
   if (opts.signedIn) signIn('almadar.example', opts.rulesAccepted ?? true);
 
-  const api: MockCommunityApi = {
+  const api: MockCommunityApi & { checkInvite(code: string): Promise<{ valid: boolean }>; listMyInvites(): Promise<{ code: string; usedAt: string | null }[]>; requestWorkEmailCode(workEmail: string): Promise<void>; verifyWorkEmailCode(workEmail: string, code: string): Promise<Me> } = {
     // ---- identity
-    async requestEmailCode(workEmail) {
+    async requestEmailCode(workEmail: string, access?: { kind: 'invite'; code: string } | { kind: 'buyer' } | { kind: 'member' }) {
       const email = workEmail.trim().toLowerCase();
       const m = /^[^\s@]+@([^\s@]+\.[^\s@]{2,})$/.exec(email);
-      if (!m) { await wait(0); return fail('invalid-email'); }
-      if (FREE_MAIL.includes(m[1])) { await wait(0); return fail('free-mail'); }
+      await wait(0);
+      if (!m) return fail('invalid-email');
+      const kind = access?.kind ?? 'member';
+      if (kind === 'member' && !joined.has(email)) return fail('not-a-member' as never);
+      if (kind === 'buyer' && !email.includes('buyer')) return fail('no-purchase' as never);
+      // An existing member is simply signed in on any path.
+      if (!joined.has(email)) {
+        if (access?.kind === 'invite') {
+          if (FREE_MAIL.includes(m[1])) return fail('free-mail');
+          pendingInvite.set(email, inviteState(access.code));
+        }
+        if (kind === 'buyer') pendingBuyer.add(email);
+      }
       const last = pendingCodes.get(email);
       if (last && now() - last < 20_000) { await wait(0); return fail('rate-limited'); }
       pendingCodes.set(email, now());
@@ -242,8 +268,17 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       if (!/^\d{6}$/.test(code) || code === '000000') fail('bad-code');
       // A real server maps the mail domain to a company. Demo addresses land in the seeded company.
       const domain = email.split('@')[1] ?? 'almadar.example';
-      signIn(COMPANIES[domain] ? domain : 'almadar.example', false);
-      if (!COMPANIES[domain]) me!.companyName = COMPANIES['almadar.example'];
+      const returning = joined.has(email);
+      signIn(COMPANIES[domain] ? domain : 'almadar.example', returning);
+      if (FREE_MAIL.includes(domain) || (pendingBuyer.has(email) && !COMPANIES[domain])) {
+        members.get('me')!.companyId = '';
+        me = { ...me!, companyId: null, companyName: null, companyMemberCount: undefined } as unknown as Me;
+      }
+      pendingBuyer.delete(email);
+      joined.add(email);
+      const inv = pendingInvite.get(email);
+      if (inv) { usedInvites.add(inv); pendingInvite.delete(email); }
+      if (me!.companyName !== null && !COMPANIES[domain]) me!.companyName = COMPANIES['almadar.example'];
       if (email.startsWith('mod@')) me = { ...me!, role: 'moderator' };
       emit();
       return me!;
@@ -278,9 +313,10 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     },
 
     // ---- content
-    async listChannels() { return wait(CHANNELS); },
+    async listChannels() { needMe(); return wait(CHANNELS); },
     async listPosts({ channel, cursor, limit }) {
-      if (channel === 'company') needMe();
+      const viewer = needMe();
+      if (channel === 'company' && !viewer.companyId) return fail('not-verified');
       const rows = posts
         .filter((r) => (channel === 'all' ? r.channel !== 'company' : r.channel === channel))
         .filter(canSee)
@@ -288,14 +324,16 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       return wait(page(rows.map(toPost), cursor, limit));
     },
     async getPost(id) {
+      needMe();
       const r = posts.find((p) => p.id === id);
       if (!r || !canSee(r)) { await wait(0); return fail('not-found'); }
       return wait(toPost(r));
     },
     async createPost({ channel, body }) {
       const m = needRules();
+      if (channel === 'company' && !m.companyId) return fail('not-verified');
       const text = checkText(body, 2000);
-      const r: Row = { id: nid('p'), channel, body: text, authorId: m.id, companyId: m.companyId, createdAt: now(), likes: new Set(), baseLikes: 0, pending: /https?:\/\/|www\./i.test(text) };
+      const r: Row = { id: nid('p'), channel, body: text, authorId: m.id, companyId: m.companyId ?? '', createdAt: now(), likes: new Set(), baseLikes: 0, pending: /https?:\/\/|www\./i.test(text) };
       posts.push(r);
       return wait(toPost(r));
     },
@@ -308,6 +346,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       await wait(0);
     },
     async listComments({ postId, cursor, limit }) {
+      needMe();
       const rows = comments.filter((c) => c.postId === postId && !blocked.has(c.authorId)).sort((a, b) => a.createdAt - b.createdAt);
       return wait(page(rows.map(toComment), cursor, limit ?? 30));
     },
@@ -351,6 +390,33 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       const m = needMe();
       return wait({ me: m, posts: posts.filter((p) => p.authorId === m.id).map(toPost), comments: comments.filter((c) => c.authorId === m.id).map(toComment) });
     },
+    async checkInvite(code: string) {
+      await wait(0);
+      try { inviteState(code); return { valid: true }; } catch { return { valid: false }; }
+    },
+    async requestWorkEmailCode(workEmail: string) {
+      needMe();
+      const email = workEmail.trim().toLowerCase();
+      const m = /^[^\s@]+@([^\s@]+\.[^\s@]{2,})$/.exec(email);
+      await wait(0);
+      if (!m) return fail('invalid-email');
+      if (FREE_MAIL.includes(m[1])) return fail('free-mail');
+      if (joined.has(email)) return fail('forbidden');
+      workCodes.add(email);
+    },
+    async verifyWorkEmailCode(workEmail: string, code: string) {
+      const cur = needMe();
+      const email = workEmail.trim().toLowerCase();
+      await wait(0);
+      if (!workCodes.has(email) || !/^\d{6}$/.test(code) || code === '000000') return fail('bad-code');
+      const domain = email.split('@')[1];
+      const companyId = COMPANIES[domain] ? domain : 'almadar.example';
+      members.get(cur.id)!.companyId = companyId;
+      me = { ...cur, companyId, companyName: COMPANIES[companyId], companyMemberCount: 212 } as Me;
+      emit();
+      return me;
+    },
+    async listMyInvites() { needMe(); return wait(myInvites.map((i) => ({ ...i }))); },
     async listModerationQueue(q) {
       const m = needMe();
       if (m.role !== 'moderator') return fail('forbidden');

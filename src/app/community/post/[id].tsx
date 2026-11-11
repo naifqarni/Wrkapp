@@ -10,7 +10,7 @@ export default function PostRoute() {
   const router = useRouter();
   return (
     <Page title={s.post.title}>
-      <PostThread postId={String(id)} onGone={() => (router.canGoBack() ? router.back() : router.replace('/community'))} />
+      <PostThread postId={String(id)} onGone={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
     </Page>
   );
 }

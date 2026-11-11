@@ -13,6 +13,7 @@ import { View } from 'react-native';
 
 import { community as s } from '@/i18n/community';
 
+import { canAddWorkEmail } from './api/access';
 import { BadgeMark } from './components/BadgeMark';
 import { useBlocked, useCommunityBoot } from './state/hooks';
 import { useSession } from './state/session';
@@ -35,7 +36,7 @@ export function CommunityAccountSection({ title = s.tab }: { title?: string | nu
           <Row
             testID="account-identity"
             label={me.handle}
-            detail={me.showCompany ? me.companyName : s.verify.showCompanyOff}
+            detail={me.companyName ? (me.showCompany ? me.companyName : s.verify.showCompanyOff) : s.profile.noCompany}
             onPress={() => router.push('/community/profile')}
             end={
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -44,6 +45,12 @@ export function CommunityAccountSection({ title = s.tab }: { title?: string | nu
               </View>
             }
           />
+          {!me.companyName && canAddWorkEmail() ? (
+            <>
+              <Hairline inset={space.gutter} />
+              <Row testID="account-add-work" label={s.profile.addWork} detail={s.profile.addWorkDetail} onPress={() => router.push({ pathname: '/community/verify', params: { mode: 'work' } })} end={<Chevron />} />
+            </>
+          ) : null}
           <Hairline inset={space.gutter} />
           <Row
             testID="account-blocked"
@@ -63,7 +70,7 @@ export function CommunityAccountSection({ title = s.tab }: { title?: string | nu
         </>
       ) : (
         <>
-          <Row testID="account-verify" label={s.gate.verify} detail={s.profile.notVerifiedBody} onPress={() => router.push('/community/verify')} end={<Chevron />} />
+          <Row testID="account-verify" label={s.profile.notVerified} detail={s.profile.notVerifiedBody} onPress={() => router.push('/')} end={<Chevron />} />
           <Hairline inset={space.gutter} />
           <Row testID="account-rules" label={s.profile.rules} onPress={() => router.push('/community/rules')} end={<Chevron />} />
         </>

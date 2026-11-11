@@ -21,7 +21,7 @@ export default function CartScreen() {
   if (lines.length === 0) {
     return (
       <Screen edges={['left', 'right', 'bottom']}>
-        <EmptyState title="السلة فارغة." action={{ label: 'القطع', onPress: () => (router.canGoBack() ? router.back() : router.replace('/')) }} style={{ marginTop: space[16] }} />
+        <EmptyState title="السلة فارغة." action={{ label: 'القطع', onPress: () => (router.canGoBack() ? router.back() : router.replace('/store')) }} style={{ marginTop: space[16] }} />
       </Screen>
     );
   }

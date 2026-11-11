@@ -25,7 +25,7 @@ export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   if (!isProductId(id)) {
-    return <Screen><EmptyState title="هذه القطعة غير موجودة." action={{ label: 'القطع', onPress: () => router.replace('/') }} /></Screen>;
+    return <Screen><EmptyState title="هذه القطعة غير موجودة." action={{ label: 'القطع', onPress: () => router.replace('/store') }} /></Screen>;
   }
   return <ProductView product={products[id]} key={id} />;
 }

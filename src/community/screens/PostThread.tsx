@@ -55,7 +55,7 @@ export function PostThread({ postId, embedded, onGone }: { postId: string; embed
         setTimeout(() => list.current?.scrollToEnd({ animated: true }), 60);
       },
       onError: (e) => {
-        haptic.error();
+        errorCode(e) === 'filtered' ? haptic.warning() : haptic.error();
         setError(errorText(e));
       },
     });

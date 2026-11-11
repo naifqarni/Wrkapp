@@ -32,7 +32,7 @@ export default function PayScreen() {
     finishPaid(orderId, r.paymentId)
       .then(() => {
         haptic.success();
-        router.dismissTo('/');
+        router.dismissTo('/store');
         router.push({ pathname: '/order/[id]', params: { id: orderId, fresh: '1' } });
       })
       .catch(() => {

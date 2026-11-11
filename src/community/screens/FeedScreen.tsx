@@ -6,7 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { community as s } from '@/i18n/community';
@@ -14,7 +14,9 @@ import { TwoPane, useLayoutClass } from '@/layout';
 
 import { getCommunityApi } from '../api';
 import type { Channel, ChannelId, Post } from '../api/types';
+import { canAddWorkEmail } from '../api/access';
 import { BadgeMark } from '../components/BadgeMark';
+import { MemberGate } from '../components/MemberGate';
 import { PostCard } from '../components/PostCard';
 import { useSafetySheet } from '../components/SafetySheet';
 import { LoadError, Notice, PostSkeleton } from '../components/States';
@@ -37,13 +39,13 @@ export function FeedScreen() {
   // Members land in their company; readers land in the open feed.
   const [channel, setChannel] = useState<ChannelId | null>(null);
   useEffect(() => {
-    if (ready && channel === null) setChannel(me ? 'company' : 'all');
+    if (ready && me && channel === null) setChannel(me.companyName ? 'company' : 'all');
   }, [ready, me, channel]);
   const current: ChannelId = channel ?? 'all';
 
-  const channels = useQuery({ queryKey: ['community', 'channels'], queryFn: () => getCommunityApi().listChannels(), staleTime: Infinity });
-  const locked = current === 'company' && !me;
-  const feed = useFeed(current, ready && channel !== null && !locked);
+  const channels = useQuery({ queryKey: ['community', 'channels'], enabled: !!me, queryFn: () => getCommunityApi().listChannels(), staleTime: Infinity });
+  const locked = current === 'company' && !me?.companyName;
+  const feed = useFeed(current, ready && !!me && channel !== null && !locked);
   const posts = useMemo(() => feed.data?.pages.flatMap((p) => p.items) ?? [], [feed.data]);
   const like = useLike();
   const unread = useUnreadCount();
@@ -84,7 +86,7 @@ export function FeedScreen() {
   };
 
   const header = (
-    <View style={{ paddingTop: insets.top + (Platform.OS === 'web' ? 58 : 6), backgroundColor: color.paper }}>
+    <View style={{ paddingTop: insets.top + 6, backgroundColor: color.paper }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingStart: space.gutter, paddingEnd: 6, minHeight: 52 }}>
         <View style={{ flex: 1 }}>
           <T v="display" accessibilityRole="header" style={{ fontSize: 26, lineHeight: 40 }}>{s.tab}</T>
@@ -99,7 +101,7 @@ export function FeedScreen() {
         <Tap
           testID="open-profile"
           accessibilityLabel={s.profile.title}
-          onPress={() => router.push(me ? '/community/profile' : '/community/verify')}
+          onPress={() => router.push('/community/profile')}
           hitSlop={6}
           style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           {me ? (
@@ -115,7 +117,7 @@ export function FeedScreen() {
         accessibilityRole="tablist"
         contentContainerStyle={{ paddingHorizontal: space.gutter, gap: 8, paddingTop: 4, paddingBottom: 12 }}>
         {(channels.data ?? FALLBACK_CHANNELS).map((c) => (
-          <Chip key={c.id} testID={`channel-${c.id}`} label={c.id === 'company' && me ? me.companyName : c.title} selected={c.id === current} onPress={() => pick(c.id)} />
+          <Chip key={c.id} testID={`channel-${c.id}`} label={c.id === 'company' && me?.companyName ? me.companyName : c.title} selected={c.id === current} onPress={() => pick(c.id)} />
         ))}
       </ScrollView>
       <Hairline />
@@ -123,7 +125,13 @@ export function FeedScreen() {
   );
 
   const body = locked ? (
-    <Notice testID="company-gate" title={s.gate.companyTitle} body={s.gate.companyBody} action={s.gate.verify} onAction={() => router.push('/community/verify')} />
+    <Notice
+      testID="company-gate"
+      title={s.gate.companyTitle}
+      body={s.gate.companyBody}
+      action={canAddWorkEmail() ? s.gate.verify : undefined}
+      onAction={() => router.push({ pathname: '/community/verify', params: { mode: 'work' } })}
+    />
   ) : !ready || channel === null || feed.isLoading ? (
     <PostSkeleton />
   ) : feed.isError && !posts.length ? (
@@ -149,15 +157,25 @@ export function FeedScreen() {
           <T v="caption" mute center style={{ marginVertical: 28 }}>{s.feed.end}</T>
         ) : undefined
       }
-      contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 88 }}
     />
   );
 
   const writeButton = (
-    <View pointerEvents="box-none" style={{ position: 'absolute', bottom: insets.bottom + 76, end: space.gutter }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', bottom: insets.bottom + 16, left: 0, right: 0, paddingHorizontal: space.gutter, flexDirection: 'row', justifyContent: 'flex-end' }}>
       <Button testID="write" label={s.feed.write} onPress={write} style={{ paddingHorizontal: 28, boxShadow: '0 10px 24px -12px rgba(17,17,18,0.55)' } as object} />
     </View>
   );
+
+  // Members only. Anyone else gets the door, not a feed.
+  if (ready && !me) {
+    return (
+      <View style={{ flex: 1, backgroundColor: color.paper }}>
+        <MemberGate />
+        <ToastLayer />
+      </View>
+    );
+  }
 
   const listPane = (
     <View style={{ flex: 1, backgroundColor: color.paper }}>
@@ -168,13 +186,12 @@ export function FeedScreen() {
   );
 
   return (
-    // The web tab container resets direction to LTR; the community is always RTL.
-    <View style={{ flex: 1, backgroundColor: color.paper }} {...(Platform.OS === 'web' ? ({ dir: 'rtl' } as object) : null)}>
+    <View style={{ flex: 1, backgroundColor: color.paper }}>
       <TwoPane
         list={listPane}
         detail={
           twoPane && selected ? (
-            <View style={{ flex: 1, paddingTop: insets.top + (Platform.OS === 'web' ? 58 : 0) }} testID="detail-pane">
+            <View style={{ flex: 1, paddingTop: insets.top }} testID="detail-pane">
               <PostThread key={selected} postId={selected} embedded onGone={() => setSelected(null)} />
             </View>
           ) : null

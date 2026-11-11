@@ -6,7 +6,6 @@
  * Layout rule: start/end only, never left/right, and no textAlign left/right (iOS swaps them in RTL,
  * Android and web do not).
  */
-import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { color, duration, ease, font, radius, size, space } from '@/theme';
+import { haptic } from '@/ui/haptics';
 
 export { color, duration, ease, font, radius, size, space };
 
@@ -37,18 +37,8 @@ export const easeSet = Easing.bezier(ease.set[0], ease.set[1], ease.set[2], ease
 export const easeLid = Easing.bezier(ease.lid[0], ease.lid[1], ease.lid[2], ease.lid[3]);
 
 /* ---------------------------------------------------------------- haptics */
-const safe = (fn: () => Promise<unknown>) => {
-  if (Platform.OS === 'web') return;
-  fn().catch(() => {});
-};
-export const haptic = {
-  tap: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
-  select: () => safe(() => Haptics.selectionAsync()),
-  setDown: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)),
-  success: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
-  warning: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
-  error: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)),
-};
+// One haptic vocabulary for the whole app.
+export { haptic };
 
 /* ------------------------------------------------------------------- text */
 type Variant = 'display' | 'title' | 'body' | 'bodyStrong' | 'label' | 'caption';

@@ -33,5 +33,6 @@ export function Price({ amount, currency = 'ر.س', large, mute, tone, style }: 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'baseline', gap: 4, alignSelf: 'flex-start' },
+  // No alignSelf here: the parent row decides (centre in list rows, baseline beside a title).
+  row: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
 });

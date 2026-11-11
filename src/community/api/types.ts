@@ -4,8 +4,11 @@ export interface Channel { id: ChannelId; title: string; companyOnly: boolean }
 export interface Me {
   id: string;
   handle: string;
-  companyId: string;
-  companyName: string;
+  /** null: joined as a store buyer with a personal email and has not added a work email yet */
+  companyId: string | null;
+  companyName: string | null;
+  /** how this member got in */
+  access?: 'invite' | 'buyer';
   showCompany: boolean;
   acceptedRulesAt: string | null;
   role: 'member' | 'moderator';
@@ -73,7 +76,24 @@ export type ReportReason = 'harassment' | 'defamation' | 'hate' | 'sexual' | 'sp
 export type ReportTarget = { type: 'post' | 'comment' | 'user'; id: string };
 export type CommunityErrorCode =
   | 'free-mail' | 'invalid-email' | 'bad-code' | 'rate-limited' | 'not-verified' | 'rules-not-accepted'
-  | 'filtered' | 'not-found' | 'forbidden' | 'network' | 'unknown';
+  | 'filtered' | 'not-found' | 'forbidden' | 'network' | 'unknown'
+  /** invite code does not exist */
+  | 'not-invited'
+  /** invite code was already used by someone else */
+  | 'invite-used'
+  /** no store order was found for this email */
+  | 'no-purchase'
+  /** access 'member' but this email has no account yet */
+  | 'not-a-member';
+
+/**
+ * The community is members-only. A new person gets in with an invite code (work email required)
+ * or because they bought from the store (the order email; personal mail allowed).
+ * A returning member signs in with just their email.
+ */
+export type SignInAccess = { kind: 'member' } | { kind: 'invite'; code: string } | { kind: 'buyer' };
+/** Looks like WRK-7Q4K-2M9X. Any case, with or without dashes, is accepted on input. */
+export interface Invite { code: string; usedAt: string | null }
 
 export class CommunityError extends Error {
   code: CommunityErrorCode;
@@ -88,8 +108,17 @@ export const LIMITS = { postMax: 2000, commentMax: 800 } as const;
 
 export interface CommunityApi {
   // identity
-  requestEmailCode(workEmail: string): Promise<void>;
-  verifyEmailCode(workEmail: string, code: string): Promise<Me>;
+  /** access omitted = { kind: 'member' } */
+  requestEmailCode(email: string, access?: SignInAccess): Promise<void>;
+  /** the server remembers which access path the code was requested on; an invite is consumed here */
+  verifyEmailCode(email: string, code: string): Promise<Me>;
+  /** works signed out. false for unknown and for used codes; never throws for a bad code */
+  checkInvite(code: string): Promise<{ valid: boolean }>;
+  /** my 3 single-use codes, oldest first */
+  listMyInvites(): Promise<Invite[]>;
+  /** a member without a company adds their employer: 'free-mail' for personal mail, 'forbidden' if the address already has an account */
+  requestWorkEmailCode?(workEmail: string): Promise<void>;
+  verifyWorkEmailCode?(workEmail: string, code: string): Promise<Me>;
   getMe(): Promise<Me | null>;
   onAuthChange(cb: (me: Me | null) => void): () => void;
   acceptRules(): Promise<Me>;
@@ -125,4 +154,6 @@ export interface CommunityApi {
   // moderators only ('forbidden' for everyone else)
   listModerationQueue?(q?: { state?: 'open' | 'closed'; cursor?: string | null; limit?: number }): Promise<Page<ModerationItem> & { openCount: number; overdueCount: number }>;
   resolveModerationItem?(id: string, action: ModerationAction, note?: string): Promise<ModerationItem>;
+  /** mint extra invite codes (1 to 50) */
+  createInvites?(count: number, note?: string): Promise<Invite[]>;
 }
