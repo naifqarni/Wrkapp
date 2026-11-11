@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>wrk. المراجعة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@200;300&family=Jost:wght@200;300&family=Readex+Pro:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#F3F2EE; --stock:#FBFAF7; --ink:#111112; --mute:#6B6A66; --line:#DCDAD3; --black:#101011; --danger:#8A2B1F; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:300 16px/1.8 "Readex Pro", system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 96px; }
+  header { display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding: 8px 0 24px; }
+  .mark { font: 300 26px "Jost", sans-serif; direction:ltr; }
+  h1 { font: 300 22px "Alexandria", sans-serif; margin: 0 0 16px; }
+  .mute { color: var(--mute); font-size: 14px; }
+  .num { font-family: "Jost", sans-serif; direction:ltr; unicode-bidi: isolate; }
+  label { display:block; font-size:14px; color:var(--mute); margin-top:20px; }
+  input, textarea { width:100%; border:0; border-bottom:1px solid var(--line); background:transparent; padding:10px 0; font:inherit; color:inherit; border-radius:0; outline:0; }
+  input:focus, textarea:focus { border-bottom-color: var(--ink); }
+  input[dir=ltr] { text-align:left; }
+  button { font:inherit; cursor:pointer; border-radius:999px; padding:10px 22px; border:1px solid var(--black); background:var(--black); color:var(--paper); }
+  button.ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  button.danger { background:transparent; color:var(--danger); border-color:var(--danger); }
+  button:disabled { opacity:.4; cursor:default; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:20px; }
+  .tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 8px; }
+  .tabs button { padding:8px 16px; white-space:nowrap; font-size:15px; }
+  .tabs button[aria-pressed=false] { background:transparent; color:var(--ink); border-color:var(--line); }
+  article { border-top:1px solid var(--line); padding: 24px 0; }
+  .body { white-space:pre-wrap; overflow-wrap:anywhere; font-size:17px; margin: 10px 0; }
+  .ctx { border-inline-start:1px solid var(--line); padding-inline-start:12px; color:var(--mute); font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .late { color: var(--danger); }
+  ul { margin:8px 0; padding:0; list-style:none; }
+  li { font-size:14px; color:var(--mute); }
+  [hidden] { display:none !important; }
+  #msg { min-height: 28px; }
+</style>
+</head>
+<body>
+<main>
+  <header><span class="mark">wrk.</span><span class="mute" id="who"></span></header>
+
+  <section id="setup" hidden>
+    <h1>ربط المشروع</h1>
+    <p class="mute">مرة واحدة على هذا المتصفح. القيمتان من صفحة API في لوحة Supabase.</p>
+    <label for="url">Project URL</label><input id="url" dir="ltr" inputmode="url" autocomplete="off" placeholder="https://xxxx.supabase.co">
+    <label for="key">anon public key</label><input id="key" dir="ltr" autocomplete="off">
+    <div class="row"><button id="saveCfg">حفظ</button></div>
+  </section>
+
+  <section id="signin" hidden>
+    <h1>دخول المراجعين</h1>
+    <label for="email">بريد العمل</label><input id="email" dir="ltr" type="email" autocomplete="email">
+    <div class="row"><button id="sendCode">أرسل الرمز</button></div>
+    <div id="codeStep" hidden>
+      <label for="code">الرمز</label><input id="code" dir="ltr" class="num" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <div class="row"><button id="verify">دخول</button></div>
+    </div>
+  </section>
+
+  <section id="queue" hidden>
+    <div class="tabs">
+      <button id="tabOpen" aria-pressed="true">بانتظار المراجعة <span class="num" id="openCount"></span></button>
+      <button id="tabClosed" aria-pressed="false">السجل</button>
+      <button id="refresh" class="ghost">تحديث</button>
+      <button id="signout" class="ghost">خروج</button>
+    </div>
+    <p class="mute" id="summary"></p>
+    <div id="items"></div>
+    <div class="row"><button id="more" class="ghost" hidden>المزيد</button></div>
+  </section>
+
+  <p id="msg" class="mute" role="status" aria-live="polite"></p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const say = (t) => { $('msg').textContent = t || ''; };
+  const ERR = {
+    'free-mail': 'استخدم بريد العمل.', 'invalid-email': 'البريد غير صحيح.', 'bad-code': 'الرمز غير صحيح أو انتهى.',
+    'rate-limited': 'محاولات كثيرة. انتظر قليلاً.', 'forbidden': 'هذا الحساب ليس مراجعاً.', 'not-verified': 'سجّل الدخول أولاً.',
+  };
+  const REASON = { harassment:'إساءة', defamation:'تشهير', hate:'كراهية', sexual:'محتوى جنسي', spam:'إعلان', 'private-info':'بيانات شخصية',
+    other:'أخرى', link:'رابط', confidential:'معلومات سرية', sensitive:'موضوع حساس', 'self-harm':'خطر على النفس', 'ai-timeout':'لم يُراجع آلياً' };
+  const SOURCE = { report:'بلاغ', filter:'الفلتر', ai:'المراجعة الآلية', stale:'انتظار طويل' };
+  const ACTION = { approve:'أُبقي', remove:'أُزيل', suspend:'إيقاف', ban:'حظر', 'deleted-by-author':'حذفه صاحبه', 'account-deleted':'حُذف الحساب' };
+  const when = (iso) => new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { dateStyle:'medium', timeStyle:'short' }).format(new Date(iso));
+
+  let sb = null, state = 'open', cursor = null;
+
+  const show = (id) => ['setup','signin','queue'].forEach((s) => { $(s).hidden = s !== id; });
+  const codeOf = async (error) => {
+    if (!error) return null;
+    if (ERR[error.message]) return error.message;
+    try { const j = await error.context.json(); if (j && j.error) return j.error; } catch (_) {}
+    return 'unknown';
+  };
+  const fail = async (error) => { const c = await codeOf(error); say(ERR[c] || 'تعذّر التنفيذ. حاول مرة أخرى.'); return c; };
+
+  function connect() {
+    let cfg = null;
+    try { cfg = JSON.parse(localStorage.getItem('wrk.mod.cfg') || 'null'); } catch (_) {}
+    if (!cfg || !cfg.url || !cfg.key) { show('setup'); return; }
+    sb = supabase.createClient(cfg.url, cfg.key, { auth: { storageKey: 'wrk.mod.session', detectSessionInUrl: false } });
+    start();
+  }
+
+  async function start() {
+    say('');
+    const { data } = await sb.auth.getSession();
+    if (!data.session) { $('who').textContent = ''; show('signin'); return; }
+    const me = await sb.rpc('me');
+    if (me.error || !me.data) { await sb.auth.signOut({ scope: 'local' }); show('signin'); return; }
+    $('who').textContent = me.data.handle;
+    if (me.data.role !== 'moderator') { show('signin'); say(ERR.forbidden); return; }
+    show('queue'); load(true);
+  }
+
+  async function load(reset) {
+    if (reset) { cursor = null; $('items').replaceChildren(); }
+    say('…');
+    const { data, error } = await sb.rpc('mod_list_queue', { p_state: state, p_cursor: cursor, p_limit: 20 });
+    if (error) { await fail(error); return; }
+    say('');
+    $('openCount').textContent = data.openCount;
+    $('summary').textContent = state === 'open'
+      ? (data.openCount === 0 ? 'لا شيء بانتظارك.' : (data.overdueCount ? `${data.overdueCount} تجاوزت ٢٤ ساعة.` : 'الأقدم أولاً. المهلة ٢٤ ساعة لكل بلاغ.'))
+      : '';
+    $('summary').className = 'mute' + (state === 'open' && data.overdueCount ? ' late' : '');
+    data.items.forEach((i) => $('items').append(card(i)));
+    cursor = data.nextCursor; $('more').hidden = !cursor;
+  }
+
+  function card(i) {
+    const a = el('article');
+    const kind = { post:'منشور', comment:'تعليق', user:'عضو' }[i.targetType];
+    const head = el('div', 'mute', `${kind} · ${SOURCE[i.source] || i.source}${i.reportCount ? ` · ${i.reportCount} بلاغ` : ''} · ${i.reasons.map((r) => REASON[r] || r).join('، ')}`);
+    a.append(head);
+    if (i.content && i.content.postBody) a.append(el('div', 'ctx', i.content.postBody));
+    if (i.content) a.append(el('div', 'body', i.content.body));
+    else if (i.targetType !== 'user') a.append(el('div', 'mute', 'المحتوى لم يعد موجوداً.'));
+    if (i.author) a.append(el('div', 'mute', `${i.author.handle}${i.author.companyLabel ? ' · ' + i.author.companyLabel : ''}${i.authorPriorRemovals ? ` · مخالفات سابقة: ${i.authorPriorRemovals}` : ''}${i.authorStatus && i.authorStatus !== 'active' ? ' · ' + (i.authorStatus === 'banned' ? 'محظور' : 'موقوف') : ''}`));
+    if (i.aiNote) { const n = el('div', 'mute', 'ملاحظة آلية: '); const t = el('bdi', null, i.aiNote); t.dir = 'auto'; n.append(t); a.append(n); }
+    if (i.reports.length) { const ul = el('ul'); i.reports.forEach((r) => ul.append(el('li', null, `${REASON[r.reason] || r.reason}${r.note ? ': ' + r.note : ''}`))); a.append(ul); }
+    const due = el('div', 'mute' + (i.overdue ? ' late' : ''), i.state === 'open' || i.state === 'in_review' ? `المهلة: ${when(i.dueAt)}` : `${ACTION[i.action] || i.action || ''} · ${when(i.createdAt)}${i.note ? ' · ' + i.note : ''}`);
+    a.append(due);
+    if (i.state !== 'open' && i.state !== 'in_review') return a;
+
+    const note = el('input'); note.placeholder = 'ملاحظة (اختياري)'; note.setAttribute('aria-label', 'ملاحظة'); note.maxLength = 500; a.append(note);
+    const row = el('div', 'row');
+    const act = (label, action, cls, confirmText) => {
+      const b = el('button', cls, label);
+      b.addEventListener('click', async () => {
+        if (confirmText && b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = confirmText; setTimeout(() => { b.dataset.armed = ''; b.textContent = label; }, 4000); return; }
+        row.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+        const { error } = await sb.rpc('mod_resolve', { p_item_id: i.id, p_action: action, p_note: note.value || null });
+        if (error) { await fail(error); row.querySelectorAll('button').forEach((x) => { x.disabled = false; }); return; }
+        a.remove(); say(''); const n = Math.max(0, Number($('openCount').textContent) - 1); $('openCount').textContent = n;
+      });
+      row.append(b);
+    };
+    act(i.targetType === 'user' ? 'لا مخالفة' : 'أبقِه', 'approve', 'ghost');
+    if (i.targetType !== 'user') act('أزِله', 'remove', '');
+    act('أوقف العضو أسبوعاً', 'suspend', 'danger', 'تأكيد الإيقاف');
+    act('احظر العضو', 'ban', 'danger', 'تأكيد الحظر النهائي');
+    a.append(row);
+    return a;
+  }
+
+  $('saveCfg').addEventListener('click', () => {
+    const url = $('url').value.trim().replace(/\/+$/, ''), key = $('key').value.trim();
+    if (!/^https:\/\/[a-z0-9.-]+$/i.test(url) || key.length < 20) { say('تحقق من القيمتين.'); return; }
+    localStorage.setItem('wrk.mod.cfg', JSON.stringify({ url, key })); say(''); connect();
+  });
+  $('sendCode').addEventListener('click', async () => {
+    say('…');
+    const { error } = await sb.functions.invoke('auth-request-code', { body: { email: $('email').value } });
+    if (error) { await fail(error); return; }
+    say('أرسلنا الرمز إلى بريدك.'); $('codeStep').hidden = false; $('code').focus();
+  });
+  $('verify').addEventListener('click', async () => {
+    say('…');
+    const { data, error } = await sb.functions.invoke('auth-verify-code', { body: { email: $('email').value, code: $('code').value } });
+    if (error) { await fail(error); return; }
+    let r = await sb.auth.verifyOtp({ token_hash: data.tokenHash, type: 'magiclink' });
+    if (r.error) r = await sb.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' });
+    if (r.error) { say('تعذّر فتح الجلسة.'); return; }
+    $('email').value = ''; $('code').value = ''; $('codeStep').hidden = true; start();
+  });
+  const tab = (s) => { state = s; $('tabOpen').setAttribute('aria-pressed', String(s === 'open')); $('tabClosed').setAttribute('aria-pressed', String(s === 'closed')); load(true); };
+  $('tabOpen').addEventListener('click', () => tab('open'));
+  $('tabClosed').addEventListener('click', () => tab('closed'));
+  $('refresh').addEventListener('click', () => load(true));
+  $('more').addEventListener('click', () => load(false));
+  $('signout').addEventListener('click', async () => { await sb.auth.signOut({ scope: 'local' }); start(); });
+
+  connect();
+})();
+</script>
+</body>
+</html>

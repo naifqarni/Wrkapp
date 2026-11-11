@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "wrk.",
+    "slug": "wrk-app",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "wrk",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F3F2EE",
+    "ios": {
+      "bundleIdentifier": "dev.ranlab.wrk",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "ar",
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "icon": "./assets/images/icon.png"
+    },
+    "android": {
+      "package": "dev.ranlab.wrk",
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F2EE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportsRTL": true,
+          "forcesRTL": true,
+          "supportedLocales": [
+            "ar"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3F2EE",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.dev.ranlab.wrk",
+          "enablePushNotifications": true,
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "OrderWidget",
+              "displayName": "طلبك",
+              "description": "أين وصل طلبك من wrk.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryRectangular",
+                  "accessoryCircular",
+                  "accessoryInline"
+                ]
+              },
+              "android": {
+                "targetCellWidth": 3,
+                "targetCellHeight": 2,
+                "resizeMode": "both"
+              }
+            }
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "splash": {
+      "backgroundColor": "#F3F2EE"
+    }
+  }
+}

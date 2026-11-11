@@ -1,0 +1,20 @@
+{
+  "name": "wrk-community-backend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db": "./apply.sh wrk_test",
+    "demo": "SEED=1 ./apply.sh wrk_demo",
+    "typecheck": "tsc -p tsconfig.functions.json && tsc -p tsconfig.json",
+    "test": "./apply.sh wrk_test && tsx --test e2e.test.ts"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "pg": "^8.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
