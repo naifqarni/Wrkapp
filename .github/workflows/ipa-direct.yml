@@ -1,0 +1,27 @@
+name: ipa as a plain file
+# Re-uploads the ipa from a finished build as an unzipped artifact, so it downloads as wrk-unsigned.ipa itself.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run id of the iOS build
+        required: true
+permissions:
+  actions: read
+  contents: read
+jobs:
+  reupload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wrk-unsigned-ipa
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: out
+      - run: ls -la out && unzip -tq out/wrk-unsigned.ipa
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wrk-unsigned.ipa
+          path: out/wrk-unsigned.ipa
+          archive: false
