@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { community as s } from '@/i18n/community';
 
+import { savedOf } from '../api/features';
 import type { Post } from '../api/types';
 import { Page } from '../components/Page';
 import { PostCard } from '../components/PostCard';
@@ -22,7 +23,7 @@ export function MyPostsScreen() {
   const posts = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
   const onOpen = useCallback((p: Post) => router.push({ pathname: '/community/post/[id]', params: { id: p.id } }), [router]);
   const onLike = useCallback((p: Post) => like.mutate({ id: p.id, liked: !p.likedByMe }), [like]);
-  const onMore = useCallback((p: Post) => sheet.open({ kind: 'post', id: p.id, postId: p.id, author: p.author, mine: p.mine }), [sheet]);
+  const onMore = useCallback((p: Post) => sheet.open({ kind: 'post', id: p.id, postId: p.id, author: p.author, mine: p.mine, saved: savedOf(p) }), [sheet]);
   return (
     <Page title={s.profile.myPosts}>
       {q.isLoading ? (

@@ -1,5 +1,8 @@
 /**
- * Tabs: المجتمع (opens first), المتجر, حسابي.
+ * Tabs: المجتمع (opens first), الشركات, حسابي. The store is not a tab: it is a quiet row in حسابي.
+ *
+ * Each tab route wraps its screen in <RailInset> (see src/layout/RailInset.tsx). The tabs themselves
+ * are never wrapped or padded.
  *
  * The tab bar is the system's own, with nothing that pins or overrides where the system puts it:
  * - iOS 26 and later: the floating Liquid Glass bar; it shrinks while you scroll down.
@@ -19,6 +22,7 @@ import { ar } from '@/i18n/ar';
 import { color, font } from '@/theme';
 import { haptic } from '@/ui/haptics';
 
+const COMPANIES = (ar.tabs as { companies?: string }).companies ?? 'الشركات';
 const android = Platform.OS === 'android';
 const web = Platform.OS === 'web';
 
@@ -65,9 +69,9 @@ function Tabs() {
           md="forum"
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="store">
-        <NativeTabs.Trigger.Label>{ar.tabs.store}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'shippingbox', selected: 'shippingbox.fill' }} md="inventory_2" />
+      <NativeTabs.Trigger name="companies">
+        <NativeTabs.Trigger.Label>{COMPANIES}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'building.2', selected: 'building.2.fill' }} md="apartment" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
         <NativeTabs.Trigger.Label>{ar.tabs.account}</NativeTabs.Trigger.Label>

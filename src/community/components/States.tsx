@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { community as s } from '@/i18n/community';
 
-import { Bone, Button, Hairline, space, T } from '../ui/kit';
+import { Bone, Button, Hairline, space, T, useShort } from '../ui/kit';
 
 export function PostSkeleton({ count = 4 }: { count?: number }) {
   return (
@@ -30,8 +30,9 @@ export function PostSkeleton({ count = 4 }: { count?: number }) {
 }
 
 export function Notice({ title, body, action, onAction, testID }: { title: string; body?: string; action?: string; onAction?: () => void; testID?: string }) {
+  const short = useShort();
   return (
-    <View testID={testID} style={{ paddingHorizontal: space.xl, paddingVertical: 56, alignItems: 'center', gap: 8 }}>
+    <View testID={testID} style={{ paddingHorizontal: space.xl, paddingVertical: short ? 22 : 56, alignItems: 'center', gap: 8 }}>
       <T v="title" center>{title}</T>
       {body ? <T mute center style={{ maxWidth: 320 }}>{body}</T> : null}
       {action ? <Button label={action} onPress={onAction} variant="ghost" style={{ marginTop: 14 }} testID={testID ? `${testID}-action` : undefined} /> : null}

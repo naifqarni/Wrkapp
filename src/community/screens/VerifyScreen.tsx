@@ -20,7 +20,7 @@ import { Page } from '../components/Page';
 import { RulesBody } from '../components/RulesBody';
 import { errorCode, errorText, useUpdateMe } from '../state/hooks';
 import { useSession } from '../state/session';
-import { Button, color, easeSet, Field, font, haptic, Num, Row, space, T, Tap, Toggle } from '../ui/kit';
+import { Button, color, easeSet, Field, font, haptic, Num, Row, space, T, Tap, Toggle, useShort } from '../ui/kit';
 
 type Mode = 'invite' | 'buyer' | 'member' | 'work';
 type Step = 'invite' | 'email' | 'code' | 'identity' | 'rules';
@@ -40,11 +40,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export function VerifyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const short = useShort();
   const { me, ready } = useSession();
   const params = useLocalSearchParams<{ mode?: string; code?: string }>();
   const mode: Mode = params.mode === 'buyer' || params.mode === 'member' || params.mode === 'work' ? params.mode : 'invite';
-  const [step, setStep] = useState<Step>(FLOW[mode][0]);
   const [invite, setInvite] = useState(() => normalizeInvite(params.code ?? ''));
+  // A code already checked at the door goes straight to the email.
+  const [step, setStep] = useState<Step>(mode === 'invite' && inviteComplete(normalizeInvite(params.code ?? '')) ? 'email' : FLOW[mode][0]);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -163,12 +165,12 @@ export function VerifyScreen() {
     <Page title={mode === 'work' ? s.gate.verify : s.gate.join} modal open>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={64}>
         {/* where you are: four dots, the brand's own mark */}
-        <View accessibilityLabel={`${index + 1} / ${flow.length}`} style={{ flexDirection: 'row', gap: 8, paddingHorizontal: space.gutter, paddingTop: 14 }}>
+        <View accessibilityLabel={`${index + 1} / ${flow.length}`} style={{ flexDirection: 'row', gap: 8, paddingHorizontal: space.gutter, paddingTop: short ? 2 : 14 }}>
           {flow.map((_, i) => (
             <View key={i} style={{ width: 7, height: 7, borderRadius: 4, borderWidth: 1, borderColor: i <= index ? color.ink : color.faint, backgroundColor: i <= index ? color.ink : 'transparent' }} />
           ))}
         </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.gutter, paddingTop: 22, paddingBottom: 24, flexGrow: 1 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.gutter, paddingTop: short ? 10 : 22, paddingBottom: short ? 12 : 24, flexGrow: 1 }}>
           <Animated.View style={{ flex: 1, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
             {step === 'invite' && (
               <View style={{ gap: 12 }} testID="step-invite">
@@ -236,7 +238,7 @@ export function VerifyScreen() {
                 <T mute>
                   {s.verify.codeBody} <Num>{cleanEmail}</Num>
                 </T>
-                <Pressable onPress={() => codeRef.current?.focus()} accessible={false} style={{ marginTop: 22 }}>
+                <Pressable onPress={() => codeRef.current?.focus()} accessible={false} style={{ marginTop: short ? 4 : 22 }}>
                   {/* Digits always read left to right, also inside an RTL screen. */}
                   <View style={[{ flexDirection: 'row', gap: 10, justifyContent: 'center' }, Platform.OS !== 'web' && { direction: 'ltr' }]} {...(Platform.OS === 'web' ? ({ dir: 'ltr' } as object) : null)} pointerEvents="none">
                     {Array.from({ length: CODE_LEN }).map((_, i) => (
@@ -295,7 +297,7 @@ export function VerifyScreen() {
               <View style={{ gap: 12 }} testID="step-identity">
                 <T v="display">{s.verify.identityTitle}</T>
                 <T mute>{s.verify.identityBody}</T>
-                <View style={{ alignItems: 'center', gap: 14, marginVertical: 26 }}>
+                <View style={{ alignItems: 'center', gap: 14, marginVertical: short ? 8 : 26 }}>
                   <View style={{ boxShadow: '10px 16px 26px -14px rgba(17,17,18,0.45)' } as object}>
                     <BadgeMark seed={me.handle} height={132} />
                   </View>

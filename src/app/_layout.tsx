@@ -8,11 +8,12 @@ import { I18nManager, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { IntroGate } from '@/intro';
 import { syncOrders } from '@/native';
 import { CartMark, useCartHeader } from '@/store/parts';
 import { useOrders } from '@/store/state';
 import { color, useWrkFonts } from '@/theme';
-import { LayoutProvider, ToastProvider, cartHeaderItem, modalRoute as modalRouteRaw, stackBase as stackBaseRaw, stackHeader as stackHeaderRaw } from '@/ui';
+import { LayoutProvider, RailInset, ToastProvider, cartHeaderItem, modalRoute as modalRouteRaw, stackBase as stackBaseRaw, stackHeader as stackHeaderRaw } from '@/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -37,6 +38,10 @@ const stackBase = stackBaseRaw as NativeStackNavigationOptions;
 const stackHeader = stackHeaderRaw as NativeStackNavigationOptions;
 const modalRoute = modalRouteRaw as NativeStackNavigationOptions;
 const cart = () => <CartMark />;
+// Every pushed screen keeps clear of the iPhone Duo side rail. The tabs are left alone so the system
+// can still move them into the rail; each tab route wraps itself in <RailInset>.
+const screenLayout = ({ children, route }: { children: React.ReactElement; route: { name: string } }) =>
+  route.name === '(tabs)' ? children : <RailInset>{children}</RailInset>;
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 1 } } }));
@@ -66,7 +71,8 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
               <ThemeProvider value={theme}>
                 <StatusBar style="dark" />
-                <Stack screenOptions={stackBase}>
+                <IntroGate>
+                <Stack screenOptions={stackBase} screenLayout={screenLayout}>
                   <Stack.Screen name="(tabs)" />
                   {/* store (lead) */}
                   <Stack.Screen name="store" options={{ ...stackHeader, title: '', ...cartOptions }} />
@@ -77,8 +83,10 @@ export default function RootLayout() {
                   <Stack.Screen name="checkout/return" options={stackBase} />
                   <Stack.Screen name="order/[id]" options={{ ...stackHeader, title: '' }} />
                   <Stack.Screen name="account/address" options={{ ...stackHeader, title: 'العنوان' }} />
+                  <Stack.Screen name="intro" options={{ ...stackBase, animation: 'fade' }} />
                   <Stack.Screen name="legal/[doc]" options={{ ...stackHeader, title: '' }} />
                 </Stack>
+                </IntroGate>
               </ThemeProvider>
             </QueryClientProvider>
           </ToastProvider>

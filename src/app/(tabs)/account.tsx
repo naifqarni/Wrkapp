@@ -10,7 +10,7 @@ import { fmtDate, piecesLabel, statusLabel } from '@/store/format';
 import { Section, useCartHeader } from '@/store/parts';
 import { useOrders, useProfile } from '@/store/state';
 import { gutter, space } from '@/theme';
-import { Header, ListRow, Num, Screen } from '@/ui';
+import { Header, ListRow, Num, RailInset, Screen } from '@/ui';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function AccountScreen() {
   const address = [profile.city, profile.district, profile.street].filter(Boolean).join('، ');
 
   return (
+    <RailInset>
     <Screen header={<Header title="حسابي" trailing={undefined} />} edges={['left', 'right']}>
       <View style={{ paddingBottom: space[16] }}>
         {config.communityEnabled ? <View style={{ marginTop: space[8], marginHorizontal: -gutter }}><CommunityAccountSection /></View> : null}
@@ -47,5 +48,6 @@ export default function AccountScreen() {
         <Num style={{ marginTop: space[8] }} mute>{`wrk. ${Constants.expoConfig?.version ?? ''}`}</Num>
       </View>
     </Screen>
+    </RailInset>
   );
 }

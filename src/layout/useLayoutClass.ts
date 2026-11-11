@@ -12,10 +12,11 @@
  * - The fold rectangle only decides WHERE the seam between two panes goes.
  */
 import * as React from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addHingeListener, getHinge, type Hinge } from 'expo-hinge';
 import { breakpoint } from '../theme';
-import { LayoutContext, type FoldRect } from './LayoutProvider';
+import { LayoutContext, NO_RAIL, RAIL_FALLBACK, type FoldRect, type RailInsets } from './LayoutProvider';
 
 export type WidthClass = 'compact' | 'medium' | 'expanded';
 
@@ -39,6 +40,11 @@ export interface LayoutClass {
   hinge: Hinge | null;
   fold: FoldRect | null;
   posture: Posture;
+  /**
+   * Room the system side rail (iPhone Duo) needs on each physical side BEYOND the safe area. Zero on
+   * everything else. Screens do not read this: <Screen> and <RailInset> apply it.
+   */
+  rail: RailInsets;
 }
 
 export function widthClassFor(width: number): WidthClass {
@@ -87,12 +93,25 @@ export function useLayoutClass(): LayoutClass {
   const liveHinge = useHingeStep();
   const hinge = ctx.simulate?.hinge !== undefined ? ctx.simulate.hinge : liveHinge;
   const fold = ctx.fold;
+  const safe = useSafeAreaInsets();
+  const measured = ctx.rail;
+  const safeLeft = safe.left;
+  const safeRight = safe.right;
   return React.useMemo(() => {
     const posture = postureFor(hinge, fold, width, height);
     // An open foldable with a vertical fold always has room for two panes, one per half, even if the
     // unfolded window is a little narrower than the 700pt breakpoint.
     const spansFold =
       !!fold && fold.orientation === 'vertical' && (posture === 'flat' || posture === 'book') && fold.x >= 260 && width - (fold.x + fold.width) >= 260;
+    // The rail. First what the system measured. If it reported nothing on an open iPhone Duo, assume
+    // the documented 84pt on the right: naif's device showed the rail there with no safe-area inset.
+    let rail = measured;
+    if (!rail && Platform.OS === 'ios' && (posture === 'flat' || posture === 'book')) {
+      rail = { left: 0, right: RAIL_FALLBACK, source: 'fallback' };
+    }
+    const extra: RailInsets = rail
+      ? { left: Math.max(0, rail.left - safeLeft), right: Math.max(0, rail.right - safeRight), source: rail.source }
+      : NO_RAIL;
     return {
       width,
       height,
@@ -102,8 +121,9 @@ export function useLayoutClass(): LayoutClass {
       hinge,
       fold,
       posture,
+      rail: extra.left || extra.right ? extra : NO_RAIL,
     };
-  }, [width, height, hinge, fold]);
+  }, [width, height, hinge, fold, measured, safeLeft, safeRight]);
 }
 
 /** Pick a value by width class. `pick({ compact: 2, medium: 3, expanded: 4 })`. */

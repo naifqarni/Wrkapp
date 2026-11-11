@@ -12,6 +12,7 @@ import { community as s } from '@/i18n/community';
 
 import { getCommunityApi } from '../api';
 import { canAddWorkEmail } from '../api/access';
+import { can } from '../api/features';
 import { InviteList } from '../components/InviteList';
 import { BadgeMark } from '../components/BadgeMark';
 import { Page } from '../components/Page';
@@ -102,6 +103,12 @@ export function ProfileScreen() {
           </>
         ) : null}
         <Row testID="row-mine" label={s.profile.myPosts} onPress={() => router.push('/community/mine')} end={<Chevron />} />
+        {can.save() ? (
+          <>
+            <Hairline inset={space.gutter} />
+            <Row testID="row-saved" label={s.profile.saved} onPress={() => router.push('/community/saved')} end={<Chevron />} />
+          </>
+        ) : null}
         {hasNotifications() ? (
           <>
             <Hairline inset={space.gutter} />

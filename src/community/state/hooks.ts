@@ -16,6 +16,7 @@ import { useCallback } from 'react';
 import { community as s } from '@/i18n/community';
 
 import { getCommunityApi } from '../api';
+import { can, createPostWithPoll, fx, type Company } from '../api/features';
 import {
   CommunityError,
   type AppNotification,
@@ -210,10 +211,11 @@ export function useLike() {
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { channel: ChannelId; body: string }) => getCommunityApi().createPost(input),
+    mutationFn: (input: { channel: ChannelId; body: string; poll?: { options: string[] } }) => createPostWithPoll(input),
     onSuccess: (post) => {
       qc.setQueryData(keys.post(post.id), post);
       qc.invalidateQueries({ queryKey: keys.allPosts });
+      qc.invalidateQueries({ queryKey: [ROOT, 'companies'] });
     },
   });
 }
@@ -329,4 +331,89 @@ export function useMemberGate() {
     },
     [me, router],
   );
+}
+
+/* ------------------------------------------------- round 3: richer features */
+export function useVotePoll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { postId: string; optionId: string }) => fx().votePoll!(v.postId, v.optionId),
+    onSuccess: (post) => patchPost(qc, post.id, () => post),
+    onError: (e) => toast(errorText(e)),
+  });
+}
+
+export function useWeeklyQuestion() {
+  const me = useMe();
+  return useQuery({ queryKey: [ROOT, 'weekly'], enabled: !!me && can.weekly(), queryFn: () => fx().getWeeklyQuestion!(), staleTime: 5 * 60_000 });
+}
+
+export function useSave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; saved: boolean }) => fx().setSaved!(v.id, v.saved),
+    onMutate: ({ id, saved }) => patchPost(qc, id, (p) => ({ ...p, savedByMe: saved }) as Post),
+    onSuccess: (_r, { saved }) => {
+      toast(saved ? s.actions.saved : s.actions.unsaved);
+      qc.invalidateQueries({ queryKey: [ROOT, 'posts', '__saved'] });
+    },
+    onError: (e, { id, saved }) => {
+      patchPost(qc, id, (p) => ({ ...p, savedByMe: !saved }) as Post);
+      toast(errorText(e));
+    },
+  });
+}
+
+export function useSavedPosts() {
+  const me = useMe();
+  return useInfiniteQuery({
+    queryKey: [ROOT, 'posts', '__saved'],
+    enabled: !!me && can.save(),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => fx().listSavedPosts!({ cursor: pageParam, limit: 10 }),
+    getNextPageParam: (last) => last.nextCursor,
+  });
+}
+
+export function useSearchPosts(query: string) {
+  const me = useMe();
+  const term = query.trim();
+  return useInfiniteQuery({
+    queryKey: [ROOT, 'posts', '__search', term],
+    enabled: !!me && can.search() && term.length >= 2,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => fx().searchPosts!({ query: term, cursor: pageParam, limit: 10 }),
+    getNextPageParam: (last) => last.nextCursor,
+  });
+}
+
+export function useCompanies(search: string) {
+  const me = useMe();
+  const term = search.trim();
+  return useInfiniteQuery({
+    queryKey: [ROOT, 'companies', term],
+    enabled: !!me && can.companies(),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => fx().listCompanies!({ search: term || undefined, cursor: pageParam, limit: 30 }),
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCompany(id: string | null) {
+  const me = useMe();
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: [ROOT, 'company', id ?? ''],
+    enabled: !!me && !!id && typeof fx().getCompany === 'function',
+    queryFn: () => fx().getCompany!(id!),
+    placeholderData: () => {
+      const lists = qc.getQueriesData<InfiniteData<Page<Company>>>({ queryKey: [ROOT, 'companies'] });
+      for (const [, d] of lists) {
+        const hit = d?.pages.flatMap((p) => p.items).find((c) => c.id === id);
+        if (hit) return hit;
+      }
+      return undefined;
+    },
+  });
 }

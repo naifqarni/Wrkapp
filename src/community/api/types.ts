@@ -19,8 +19,41 @@ export interface Me {
   /** a moderator paused this account: reading works, writing answers 'forbidden' */
   suspended?: boolean;
 }
-/** companyLabel null means the author chose to hide it */
-export interface Author { id: string; handle: string; companyLabel: string | null }
+/**
+ * companyLabel null means the author chose to hide it.
+ * companyId and companyIconUrl are set only when the author shows their employer.
+ * The author of the question of the week is always { id: 'wrk', handle: 'wrk.', companyLabel: null }.
+ */
+export interface Author { id: string; handle: string; companyLabel: string | null; companyId?: string | null; companyIconUrl?: string | null }
+/**
+ * A company in the directory. iconUrl is a copy held by our backend (null: draw the monogram).
+ * The company's posts are listPosts({ channel: 'company' }) and only for its own verified members;
+ * everyone else gets this card with its two counts.
+ */
+export interface Company {
+  id: string;
+  name: string;
+  nameEn: string | null;
+  domain: string | null;
+  /** Arabic label, e.g. "البنوك" */
+  sector: string | null;
+  iconUrl: string | null;
+  memberCount: number;
+  postCount: number;
+  mine: boolean;
+}
+/** One vote per member, never changed. Nobody can see who chose what. */
+export interface Poll {
+  options: { id: string; text: string; votes: number }[];
+  totalVotes: number;
+  myOptionId: string | null;
+}
+/**
+ * One prompt a week for everyone. It is a normal post in 'all' written by the 'wrk' author;
+ * answers are its comments (getPost / listComments / createComment). It is not in listPosts or searchPosts.
+ * The week turns on Sunday 00:00 Riyadh time (endsAt).
+ */
+export interface WeeklyQuestion { id: string; postId: string; text: string; endsAt: string; answerCount: number }
 export interface Post {
   id: string;
   channel: ChannelId;
@@ -31,6 +64,8 @@ export interface Post {
   commentCount: number;
   likedByMe: boolean;
   mine: boolean;
+  savedByMe?: boolean;
+  poll?: Poll | null;
   /** 'pending' appears only on my own items while the filter, the AI or a moderator is reviewing them */
   status?: ContentStatus;
 }
@@ -44,14 +79,21 @@ export interface Comment {
   mine: boolean;
   status?: ContentStatus;
 }
-/** comment: someone commented on my post. removed / approved: a moderator decided on something I wrote. */
+/**
+ * comment: someone commented on my post. removed / approved: a moderator decided on something I wrote.
+ * like: people liked my post (one row per post, re-used while unread; count = likes so far).
+ * invite-joined: someone came in with one of my invitations (postId null).
+ */
 export interface AppNotification {
   id: string;
-  type: 'comment' | 'removed' | 'approved';
+  type: 'comment' | 'removed' | 'approved' | 'like' | 'invite-joined';
   postId: string | null;
   commentId: string | null;
   createdAt: string;
   read: boolean;
+  /** the first 80 characters of my own post, so the row can say which one */
+  excerpt?: string | null;
+  count?: number;
 }
 export type ModerationAction = 'approve' | 'remove' | 'suspend' | 'ban';
 export interface ModerationItem {
@@ -104,7 +146,7 @@ export class CommunityError extends Error {
   }
 }
 
-export const LIMITS = { postMax: 2000, commentMax: 800 } as const;
+export const LIMITS = { postMax: 2000, commentMax: 800, pollOptionsMin: 2, pollOptionsMax: 4, pollOptionMax: 60, searchMin: 2 } as const;
 
 export interface CommunityApi {
   // identity
@@ -129,7 +171,8 @@ export interface CommunityApi {
   listChannels(): Promise<Channel[]>;
   listPosts(q: { channel: ChannelId; cursor?: string | null; limit?: number }): Promise<Page<Post>>;
   getPost(id: string): Promise<Post>;
-  createPost(input: { channel: ChannelId; body: string }): Promise<Post>;
+  /** poll: 2 to 4 choices of 1 to 60 characters; the body is the question. Bad choices throw 'filtered'. */
+  createPost(input: { channel: ChannelId; body: string; poll?: { options: string[] } }): Promise<Post>;
   deletePost(id: string): Promise<void>;
   listComments(q: { postId: string; cursor?: string | null; limit?: number }): Promise<Page<Comment>>;
   createComment(input: { postId: string; body: string }): Promise<Comment>;
@@ -156,4 +199,18 @@ export interface CommunityApi {
   resolveModerationItem?(id: string, action: ModerationAction, note?: string): Promise<ModerationItem>;
   /** mint extra invite codes (1 to 50) */
   createInvites?(count: number, note?: string): Promise<Invite[]>;
+
+  // Round 3 (optional like the rest; the mock mirrors them)
+  /** search matches Arabic and English names, the sector and the domain. Order: mine, most members, name. */
+  listCompanies?(q?: { search?: string; cursor?: string | null; limit?: number }): Promise<Page<Company>>;
+  getCompany?(id: string): Promise<Company>;
+  /** 'not-found' for a post or option I cannot see, 'forbidden' when I already voted */
+  votePoll?(postId: string, optionId: string): Promise<Post>;
+  /** null when no question is scheduled */
+  getWeeklyQuestion?(): Promise<WeeklyQuestion | null>;
+  setSaved?(postId: string, saved: boolean): Promise<void>;
+  /** most recently saved first */
+  listSavedPosts?(q?: { cursor?: string | null; limit?: number }): Promise<Page<Post>>;
+  /** post text I am allowed to see; fewer than 2 characters answers an empty page */
+  searchPosts?(q: { query: string; cursor?: string | null; limit?: number }): Promise<Page<Post>>;
 }

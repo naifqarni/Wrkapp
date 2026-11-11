@@ -1,6 +1,6 @@
 # wrk. app
 
-iOS and Android app for wrk.: the work community (المجتمع, members only, opens first), the store (المتجر) and the account (حسابي).
+iOS and Android app for wrk.: the work community (المجتمع, members only, opens first), company spaces (الشركات) and the account (حسابي). The store is a quiet row inside the account page.
 Arabic, right-to-left, light mode. Expo SDK 58, React Native 0.88, TypeScript, expo-router.
 
 ## Run it
@@ -45,15 +45,20 @@ The app is complete without these; each one switches a part from its stand-in to
 3. First members: `select * from private.mint_invites(null, 10, 'launch');` in Supabase gives the first invitation
    codes. After that each member has 3 invitations, and anyone who bought from the shop joins with the order's email.
 
+4. Addresses: `EXPO_PUBLIC_SOCIAL_URL`, `EXPO_PUBLIC_STORE_URL`, `EXPO_PUBLIC_CORPORATE_URL` for wrk.sa, store.wrk.sa and
+   corporate.wrk.sa once the domains are live.
+5. Company icons: after the backend is up, fetch them from the moderator console (backend README, step 10).
+
 The community is members only: by invitation, or with the email of a shop order. Checkout asks for the email for
 that reason.
 
 ## Layout of the code
 
 ```
-src/app/            routes (expo-router): (tabs)/index community, (tabs)/store, (tabs)/account, product/[id], cart, checkout, order/[id]
+src/app/            routes (expo-router): (tabs)/index community, (tabs)/companies, (tabs)/account, store, intro, product/[id], cart, checkout, order/[id]
 src/store/          catalogue, cart and personalisation state, shop client, Moyasar client, 3D viewer
 src/community/      community screens, state and API client
+src/intro/          first-launch intro; the words are in src/intro/strings.ts
 src/ui, src/theme, src/layout   design system, tokens, foldable and large-screen layout
 shop-bridge/        the WooCommerce plugin for app orders
 viewer-src/         sources of the 3D viewer page

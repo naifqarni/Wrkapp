@@ -9,7 +9,8 @@ import { ScrollView, TextInput, View } from 'react-native';
 import { community as s } from '@/i18n/community';
 
 import type { Author, ReportReason } from '../api/types';
-import { errorText, useBlock, useDeleteComment, useDeletePost, useMemberGate, useReport } from '../state/hooks';
+import { can } from '../api/features';
+import { errorText, useBlock, useDeleteComment, useDeletePost, useMemberGate, useReport, useSave } from '../state/hooks';
 import { Button, color, font, Hairline, haptic, Icon, inputRTL, Row, Sheet, space, T } from '../ui/kit';
 import { BadgeMark } from './BadgeMark';
 
@@ -19,6 +20,8 @@ export interface SafetyTarget {
   postId: string;
   author: Author;
   mine: boolean;
+  /** Posts only: whether it is in the member's saved list. Leave undefined to hide the row. */
+  saved?: boolean;
 }
 
 type Step = 'menu' | 'report' | 'reported' | 'block' | 'delete';
@@ -62,7 +65,10 @@ function SafetySheet({
   const block = useBlock();
   const delPost = useDeletePost();
   const delComment = useDeleteComment(target.postId);
-  const canBlock = !target.mine && target.author.id !== 'deleted';
+  const save = useSave();
+  const system = target.author.id === 'wrk';
+  const canSave = target.kind === 'post' && target.saved !== undefined && can.save();
+  const canBlock = !target.mine && !system && target.author.id !== 'deleted';
 
   const doBlock = () =>
     block.mutate(target.author, {
@@ -104,7 +110,20 @@ function SafetySheet({
     <Sheet visible={visible} onClose={onClose} testID="safety-sheet">
       {step === 'menu' && (
         <View>
-          {target.mine ? (
+          {canSave ? (
+            <>
+              <Row
+                testID="action-save"
+                label={target.saved ? s.actions.unsave : s.actions.save}
+                onPress={() => {
+                  save.mutate({ id: target.id, saved: !target.saved });
+                  onClose();
+                }}
+              />
+              <Hairline inset={space.gutter} />
+            </>
+          ) : null}
+          {system ? null : target.mine ? (
             <Row testID="action-delete" label={s.actions.delete} danger onPress={() => setStep('delete')} />
           ) : (
             <>
@@ -117,7 +136,7 @@ function SafetySheet({
               ) : null}
             </>
           )}
-          <Hairline inset={space.gutter} />
+          {system ? null : <Hairline inset={space.gutter} />}
           <Row label={s.actions.cancel} onPress={onClose} />
         </View>
       )}

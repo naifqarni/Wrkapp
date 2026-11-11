@@ -223,7 +223,7 @@ export const Field = React.forwardRef<React.ComponentRef<typeof TextInput>, Text
 );
 
 /* ------------------------------------------------------------------ icons */
-type IconName = 'more' | 'bell' | 'close' | 'check' | 'chevron' | 'pen';
+type IconName = 'more' | 'bell' | 'close' | 'check' | 'chevron' | 'pen' | 'search';
 export function Icon({ name, size: s = 22, tint = color.ink }: { name: IconName; size?: number; tint?: string }) {
   const p = { stroke: tint, strokeWidth: 1.4, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   return (
@@ -240,6 +240,7 @@ export function Icon({ name, size: s = 22, tint = color.ink }: { name: IconName;
       {name === 'check' && <Path {...p} d="M5 12.5l4.5 4.5L19 7.5" />}
       {/* points to the end edge in RTL (left), flipped by the caller when needed */}
       {name === 'chevron' && <Path {...p} d="M14.5 6l-6 6 6 6" />}
+      {name === 'search' && <Path {...p} d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13Zm4.8-1.7L20 20" />}
       {name === 'pen' && <Path {...p} d="M4 20l1-4.2L16.6 4.2a1.7 1.7 0 0 1 2.4 0l.8.8a1.7 1.7 0 0 1 0 2.4L8.2 19 4 20Z" />}
     </Svg>
   );
@@ -451,4 +452,10 @@ export function ToastLayer() {
 /* --------------------------------------------------------------- skeleton */
 export function Bone({ w, h = 12, style }: { w: number | `${number}%`; h?: number; style?: StyleProp<ViewStyle> }) {
   return <View style={[{ width: w, height: h, borderRadius: 3, backgroundColor: color.line, opacity: 0.6 }, style]} />;
+}
+
+/** A phone on its side, or a folded Duo in landscape: wide but very short. Screens trade height for width here. */
+export function useShort(): boolean {
+  const { width, height } = useWindowDimensions();
+  return width > height && height < 560;
 }

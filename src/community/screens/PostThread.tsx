@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { community as s } from '@/i18n/community';
 
+import { savedOf } from '../api/features';
 import type { Comment, Post } from '../api/types';
 import { CommentRow, PostCard } from '../components/PostCard';
 import { useSafetySheet } from '../components/SafetySheet';
@@ -40,7 +41,7 @@ export function PostThread({ postId, embedded, onGone }: { postId: string; embed
     },
     [gate, like],
   );
-  const onMorePost = useCallback((p: Post) => sheet.open({ kind: 'post', id: p.id, postId: p.id, author: p.author, mine: p.mine }), [sheet]);
+  const onMorePost = useCallback((p: Post) => sheet.open({ kind: 'post', id: p.id, postId: p.id, author: p.author, mine: p.mine, saved: savedOf(p) }), [sheet]);
   const onMoreComment = useCallback((c: Comment) => sheet.open({ kind: 'comment', id: c.id, postId: c.postId, author: c.author, mine: c.mine }), [sheet]);
 
   const send = () => {
@@ -115,7 +116,7 @@ export function PostThread({ postId, embedded, onGone }: { postId: string; embed
             onFocus={() => {
               if (!me) gate();
             }}
-            placeholder={s.post.commentPlaceholder}
+            placeholder={post.data?.author.id === 'wrk' ? s.weekly.answerPlaceholder : s.post.commentPlaceholder}
             placeholderTextColor={color.faint}
             accessibilityLabel={s.post.commentPlaceholder}
             multiline

@@ -1,4 +1,5 @@
-export { LayoutProvider, type FoldRect, type LayoutSimulation, type LayoutProviderProps } from './LayoutProvider';
+export { LayoutProvider, RAIL_FALLBACK, type FoldRect, type RailInsets, type LayoutSimulation, type LayoutProviderProps } from './LayoutProvider';
+export { RailInset, useInsideRailInset } from './RailInset';
 export {
   useLayoutClass,
   useResponsive,

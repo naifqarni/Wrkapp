@@ -4,7 +4,7 @@
  * When an item is added the dot is "set down": it drops in with one soft settle and a haptic.
  */
 import * as React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { color, font, motion } from '../theme';
 import { Text } from './Text';
@@ -52,7 +52,7 @@ export function Wordmark({ size = 26, count = 0, onPressDot, dotLabel, onDark, s
   );
 
   return (
-    <View style={[styles.row, style]} accessibilityRole="header" accessibilityLabel="wrk.">
+    <View {...LTR} style={[styles.row, style]} accessibilityRole="header" accessibilityLabel="wrk.">
       <Text
         ltr
         maxFontSizeMultiplier={1.2}
@@ -75,8 +75,11 @@ export function Wordmark({ size = 26, count = 0, onPressDot, dotLabel, onDark, s
   );
 }
 
+// Web takes the `dir` attribute (react-native-web warns about the `direction` style); native takes the style.
+const LTR = (Platform.OS === 'web' ? { dir: 'ltr' } : null) as object | null;
+
 const styles = StyleSheet.create({
   // Physically LTR in every locale: the dot always follows the k.
-  row: { flexDirection: 'row', direction: 'ltr', alignItems: 'flex-end', alignSelf: 'flex-start' },
+  row: { flexDirection: 'row', ...(Platform.OS === 'web' ? null : { direction: 'ltr' as const }), alignItems: 'flex-end', alignSelf: 'flex-start' },
   dotHit: { alignSelf: 'flex-end' },
 });

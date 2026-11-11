@@ -3,20 +3,23 @@ import { Platform, Pressable, View } from 'react-native';
 
 import { community as s } from '@/i18n/community';
 
+import { can, pollOf } from '../api/features';
 import type { Author, Comment, Post } from '../api/types';
+import { useMemberGate, useVotePoll } from '../state/hooks';
 import { Ago } from '../time';
-import { color, IconButton, Num, space, T } from '../ui/kit';
+import { color, font, IconButton, Num, space, T } from '../ui/kit';
 import { BadgeMark } from './BadgeMark';
 import { LikeDot } from './LikeDot';
+import { PollView } from './PollView';
 
 /** Who wrote it: badge, handle, company (if shown), when. */
 export function Byline({ author, createdAt, mine, extra, onMore, moreTestID }: { author: Author; createdAt: string; mine?: boolean; extra?: string | null; onMore?: () => void; moreTestID?: string }) {
   const sub = [author.companyLabel, extra].filter(Boolean).join(' · ');
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <BadgeMark seed={author.handle} height={32} />
+      {author.id === 'wrk' ? <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: color.ink, marginHorizontal: 1 }} /> : <BadgeMark seed={author.handle} height={32} />}
       <View style={{ flex: 1 }}>
-        <T v="label" numberOfLines={1}>
+        <T v="label" numberOfLines={1} style={author.id === 'wrk' ? { fontFamily: font.mark, fontSize: 17, writingDirection: 'ltr', alignSelf: 'flex-start' } : undefined}>
           {author.handle}
           {mine ? <T v="caption" mute>{`  ${s.feed.you}`}</T> : null}
         </T>
@@ -58,6 +61,9 @@ export const PostCard = React.memo(function PostCard({
   onLike: (post: Post) => void;
   onMore: (post: Post) => void;
 }) {
+  const poll = can.polls() ? pollOf(post) : null;
+  const vote = useVotePoll();
+  const gate = useMemberGate();
   const channel = showChannel && post.channel !== 'all' && post.channel !== 'company' ? s.channels[post.channel] : null;
   const body = (
     <View style={{ paddingHorizontal: space.gutter, paddingTop: 16, paddingBottom: 8, backgroundColor: selected ? color.stock : 'transparent' }}>
@@ -68,6 +74,7 @@ export const PostCard = React.memo(function PostCard({
         style={[{ marginTop: 10 }, full && { fontSize: 18, lineHeight: 32 }]}>
         {post.body}
       </T>
+      {poll ? <PollView poll={poll} busy={vote.isPending} onVote={(optionId) => gate() && vote.mutate({ postId: post.id, optionId })} /> : null}
       {post.status === 'pending' ? <Pending /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 6 }}>
         <LikeDot testID={`like-${post.id}`} liked={post.likedByMe} count={post.likeCount} onToggle={() => onLike(post)} />

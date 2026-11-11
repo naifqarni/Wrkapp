@@ -18,6 +18,7 @@ import {
   type Channel,
   type ChannelId,
   type Comment,
+  type Company,
   type CommunityApi,
   type Invite,
   type SignInAccess,
@@ -29,6 +30,7 @@ import {
   type Post,
   type ReportReason,
   type ReportTarget,
+  type WeeklyQuestion,
 } from './types';
 
 /** The slice of supabase-js this file uses (lets tests pass a fake). */
@@ -247,8 +249,10 @@ export function createSupabaseCommunityApi(client: SupabaseLike): CommunityApi {
       return clean(await rpc<Raw<Post>>('get_post', { p_id: id }));
     },
 
-    async createPost(input: { channel: ChannelId; body: string }) {
-      return settle('post', await rpc<Raw<Post>>('create_post', { p_channel: input.channel, p_body: input.body }));
+    async createPost(input: { channel: ChannelId; body: string; poll?: { options: string[] } }) {
+      return settle('post', await rpc<Raw<Post>>('create_post', {
+        p_channel: input.channel, p_body: input.body, p_poll: input.poll ? { options: input.poll.options } : null,
+      }));
     },
 
     async deletePost(id) {
@@ -333,6 +337,37 @@ export function createSupabaseCommunityApi(client: SupabaseLike): CommunityApi {
 
     async createInvites(count, note) {
       return (await rpc<Invite[] | null>('mod_create_invites', { p_count: count, p_note: note ?? null })) ?? [];
+    },
+
+    // ------------------------------------------------------------- round 3
+    async listCompanies(q) {
+      return page(await rpc<Page<Company>>('list_companies', { p_search: q?.search ?? null, p_cursor: q?.cursor ?? null, p_limit: q?.limit ?? 30 }));
+    },
+
+    async getCompany(id) {
+      return rpc<Company>('get_company', { p_id: id });
+    },
+
+    async votePoll(postId, optionId) {
+      return clean(await rpc<Raw<Post>>('vote_poll', { p_post_id: postId, p_option_id: optionId }));
+    },
+
+    async getWeeklyQuestion() {
+      return (await rpc<WeeklyQuestion | null>('get_weekly_question')) ?? null;
+    },
+
+    async setSaved(postId, saved) {
+      await rpc<void>('set_saved', { p_post_id: postId, p_saved: saved });
+    },
+
+    async listSavedPosts(q) {
+      const p = await rpc<Page<Raw<Post>>>('list_saved_posts', { p_cursor: q?.cursor ?? null, p_limit: q?.limit ?? 20 });
+      return page({ items: (p?.items ?? []).map(clean), nextCursor: p?.nextCursor ?? null });
+    },
+
+    async searchPosts(q) {
+      const p = await rpc<Page<Raw<Post>>>('search_posts', { p_query: q.query, p_cursor: q.cursor ?? null, p_limit: q.limit ?? 20 });
+      return page({ items: (p?.items ?? []).map(clean), nextCursor: p?.nextCursor ?? null });
     },
   };
 

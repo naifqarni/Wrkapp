@@ -50,10 +50,46 @@ const COMPANIES: Record<string, string> = {
   'rukn.example': 'ركن',
 };
 
+/**
+ * The directory. Real employers are listed by name, sector and domain only, with no members and no
+ * posts: nothing in this file is written in a real company's name. The seed posts belong to the
+ * four fictional companies at the top.
+ */
+const DIRECTORY: { id: string; name: string; nameEn: string; domain: string; sector: string; members: number; real?: boolean }[] = [
+  { id: 'almadar.example', name: 'المدار', nameEn: 'Almadar', domain: 'almadar.example', sector: 'تقنية', members: 212 },
+  { id: 'nasaq.example', name: 'نسق', nameEn: 'Nasaq', domain: 'nasaq.example', sector: 'استشارات', members: 87 },
+  { id: 'sariya.example', name: 'سارية', nameEn: 'Sariya', domain: 'sariya.example', sector: 'لوجستيات', members: 54 },
+  { id: 'rukn.example', name: 'ركن', nameEn: 'Rukn', domain: 'rukn.example', sector: 'تجزئة', members: 31 },
+  ...([
+    ['aramco.com', 'أرامكو السعودية', 'Saudi Aramco', 'طاقة'],
+    ['sabic.com', 'سابك', 'SABIC', 'بتروكيماويات'],
+    ['stc.com.sa', 'stc', 'stc', 'اتصالات'],
+    ['alrajhibank.com.sa', 'مصرف الراجحي', 'Al Rajhi Bank', 'بنوك'],
+    ['alahli.com', 'البنك الأهلي السعودي', 'Saudi National Bank', 'بنوك'],
+    ['riyadbank.com', 'بنك الرياض', 'Riyad Bank', 'بنوك'],
+    ['se.com.sa', 'السعودية للكهرباء', 'Saudi Electricity', 'طاقة'],
+    ['maaden.com.sa', 'معادن', "Ma'aden", 'تعدين'],
+    ['saudia.com', 'الخطوط السعودية', 'Saudia', 'طيران'],
+    ['neom.com', 'نيوم', 'NEOM', 'تطوير'],
+    ['pif.gov.sa', 'صندوق الاستثمارات العامة', 'PIF', 'استثمار'],
+    ['almarai.com', 'المراعي', 'Almarai', 'أغذية'],
+    ['mobily.com.sa', 'موبايلي', 'Mobily', 'اتصالات'],
+    ['sa.zain.com', 'زين السعودية', 'Zain KSA', 'اتصالات'],
+    ['jarir.com', 'مكتبة جرير', 'Jarir', 'تجزئة'],
+    ['elm.sa', 'علم', 'Elm', 'تقنية'],
+    ['tawuniya.com', 'التعاونية', 'Tawuniya', 'تأمين'],
+    ['bupa.com.sa', 'بوبا العربية', 'Bupa Arabia', 'تأمين'],
+    ['acwapower.com', 'أكوا باور', 'ACWA Power', 'طاقة'],
+    ['redseaglobal.com', 'البحر الأحمر الدولية', 'Red Sea Global', 'سياحة'],
+  ] as const).map(([domain, name, nameEn, sector]) => ({ id: domain, name, nameEn, domain, sector, members: 0, real: true })),
+];
+
 const FILTERED = ['غبي', 'حقير', 'idiot', 'stupid'];
 
 interface Row {
   pending?: boolean;
+  poll?: { options: { id: string; text: string; base: number }[]; votes: Map<string, string> };
+  weekly?: boolean;
   id: string;
   channel: ChannelId;
   body: string;
@@ -121,7 +157,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     ['u8', 80 * MIN, 'لا تحكم على المكان من أول أسبوع.'],
     ['u5', 41 * MIN, 'تعال بدري ربع ساعة. الجهاز والبطاقة ياخذون وقت.'],
   ]);
-  seedPost('salaries', 'u6', 5 * HOUR, 63, 'محلل بيانات، سنتين خبرة، الرياض. العرض 11,500 أساسي مع بدل سكن ونقل. هل هذا ضمن المعدل؟', [
+  seedPost('salaries', 'u6', 5 * HOUR, 63, 'محلل بيانات، سنتين خبرة، الرياض. العرض 11,500 راتب أساسي مع بدل سكن ونقل. هل هذا ضمن المعدل؟', [
     ['u8', 4 * HOUR, 'قريب من المعدل. فاوض على مراجعة بعد ستة أشهر مكتوبة في العرض.'],
     ['u4', 3 * HOUR, 'اسأل عن التأمين لأي فئة، والمكافأة السنوية كم راتب.'],
   ]);
@@ -134,6 +170,17 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     ['u6', 20 * HOUR, 'وقّف إشعارات العمل بعد الثامنة. محد لاحظ عندي.'],
     ['u9', 19 * HOUR, 'نفس الشيء عندنا. كلمته بهدوء وتغيّر.'],
   ]);
+  const pPoll = seedPost('culture', 'u1', 4 * HOUR, 22, 'كم يوم من البيت يكفيك في الأسبوع؟');
+  posts[posts.length - 1].poll = { options: [{ id: 'o1', text: 'ولا يوم', base: 9 }, { id: 'o2', text: 'يوم أو يومين', base: 61 }, { id: 'o3', text: 'ثلاثة وفوق', base: 38 }, { id: 'o4', text: 'كله من البيت', base: 17 }], votes: new Map() };
+  void pPoll;
+  addMember('wrk', '', false);
+  members.get('wrk')!.handle = 'wrk.';
+  const pWeekly = seedPost('all', 'wrk', 2 * DAY, 0, 'وش أول شي سوّيته بأول راتب؟', [
+    ['u2', 40 * HOUR, 'عزمت أهلي على عشاء. للحين أمي تذكرها.'],
+    ['u6', 30 * HOUR, 'سدّدت سلفة أخوي وبقى لي نصّه.'],
+    ['u8', 20 * HOUR, 'شريت ساعة ما كان لها داعي. ما ندمت.'],
+  ]);
+  posts[posts.length - 1].weekly = true;
   seedPost('advice', 'u8', 2 * DAY, 52, 'نصيحة أخذتها متأخر: وثّق إنجازاتك أول بأول في ملف واحد. يوم التقييم ما تتذكر شيء.');
   seedPost('all', 'u1', 3 * DAY, 19, 'وش أفضل طريقة تطلب فيها نقل لفريق ثاني بدون ما يتضايق مديرك الحالي؟', [
     ['u5', 3 * DAY - HOUR, 'كلّم مديرك أول. لو سمعها من غيرك تصير أصعب.'],
@@ -147,6 +194,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
   seedPost('all', 'u8', 12 * DAY, 30, 'قاعدة جرّبتها سنة: ما أفتح البريد قبل ما أخلّص أهم مهمة في اليوم.');
 
   let me: Me | null = null;
+  const saved = new Set<string>();
   const qItem = (r: Row, source: ModerationItem['source'], reasons: string[], ago: number, reports: ModerationItem['reports']): ModerationItem => ({
     id: nid('m'), targetType: 'post', targetId: r.id, source, reasons, aiNote: null, reportCount: reports.length, state: 'open', action: null,
     createdAt: iso(t0 - ago), dueAt: iso(t0 - ago + DAY), overdue: ago > DAY, author: author(r.authorId),
@@ -174,6 +222,8 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     notifications = [
       { id: nid('n'), type: 'comment', createdAt: iso(t0 - 22 * MIN), read: false, postId: posts[0].id, commentId: null },
       { id: nid('n'), type: 'comment', createdAt: iso(t0 - 3 * HOUR), read: false, postId: pFirst, commentId: null },
+      { id: nid('n'), type: 'like', createdAt: iso(t0 - 5 * HOUR), read: false, postId: posts[0].id, commentId: null, count: 14, excerpt: posts[0].body.slice(0, 80) } as unknown as AppNotification,
+      { id: nid('n'), type: 'invite-joined', createdAt: iso(t0 - 4 * DAY), read: true, postId: null, commentId: null } as unknown as AppNotification,
       { id: nid('n'), type: 'approved', createdAt: iso(t0 - 2 * DAY), read: true, postId: posts[6].id, commentId: null },
       { id: nid('n'), type: 'removed', createdAt: iso(t0 - 6 * DAY), read: true, postId: null, commentId: null },
     ];
@@ -189,9 +239,11 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
 
   const author = (id: string): Author => {
     const m = members.get(id)!;
-    return { id, handle: m.handle, companyLabel: m.showCompany && m.companyId ? COMPANIES[m.companyId] ?? m.companyId : null };
+    const shown = m.showCompany && !!m.companyId;
+    return { id, handle: m.handle, companyLabel: shown ? COMPANIES[m.companyId] ?? m.companyId : null, ...(shown ? { companyId: m.companyId } : null) } as Author;
   };
-  const toPost = (r: Row): Post => ({
+  const toPost = (r: Row): Post => ({ ...toPostBase(r), ...(r.poll ? { poll: pollOf(r) } : null), savedByMe: !!me && saved.has(r.id) }) as Post;
+  const toPostBase = (r: Row): Post => ({
     id: r.id,
     channel: r.channel,
     body: r.body,
@@ -203,15 +255,28 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     mine: !!me && r.authorId === me.id,
     status: r.pending ? 'pending' : 'published',
   });
+  const pollOf = (r: Row) => {
+    const p = r.poll!;
+    const options = p.options.map((o) => ({ id: o.id, text: o.text, votes: o.base + [...p.votes.values()].filter((v) => v === o.id).length }));
+    return { options, totalVotes: options.reduce((n, o) => n + o.votes, 0), myOptionId: (me && p.votes.get(me.id)) || null };
+  };
   const toComment = (c: CRow): Comment => ({
     id: c.id, postId: c.postId, body: c.body, author: author(c.authorId), createdAt: iso(c.createdAt), mine: !!me && c.authorId === me.id,
   });
-  const canSee = (r: Row) => !blocked.has(r.authorId) && (!r.pending || (!!me && r.authorId === me.id)) && (r.channel !== 'company' || (!!me && r.companyId === me.companyId));
+  const canSee = (r: Row) => r.weekly ? true : !blocked.has(r.authorId) && (!r.pending || (!!me && r.authorId === me.id)) && (r.channel !== 'company' || (!!me && r.companyId === me.companyId));
   function page<T>(all: T[], cursor: string | null | undefined, limit = 10): Page<T> {
     const start = cursor ? parseInt(cursor, 10) || 0 : 0;
     const items = all.slice(start, start + limit);
     return { items, nextCursor: start + limit < all.length ? String(start + limit) : null };
   }
+  const toCompany = (c: (typeof DIRECTORY)[number], viewer: Me) => ({
+    id: c.id, name: c.name, nameEn: c.nameEn, domain: c.domain, sector: c.sector,
+    // Mock only: the site's own public icon, straight from a favicon service. The real backend serves its cached copy.
+    iconUrl: c.real ? `https://www.google.com/s2/favicons?sz=128&domain=${c.domain}` : null,
+    memberCount: c.members,
+    postCount: posts.filter((p) => p.channel === 'company' && p.companyId === c.id).length,
+    mine: viewer.companyId === c.id,
+  });
   const needMe = (): Me => me ?? fail('not-verified');
   const needRules = (): Me => {
     const m = needMe();
@@ -239,7 +304,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
   ];
   if (opts.signedIn) signIn('almadar.example', opts.rulesAccepted ?? true);
 
-  const api: MockCommunityApi & { checkInvite(code: string): Promise<{ valid: boolean }>; listMyInvites(): Promise<{ code: string; usedAt: string | null }[]>; requestWorkEmailCode(workEmail: string): Promise<void>; verifyWorkEmailCode(workEmail: string, code: string): Promise<Me> } = {
+  const api: MockCommunityApi & { listCompanies: unknown; getCompany: unknown; votePoll: unknown; getWeeklyQuestion: unknown; setSaved: unknown; listSavedPosts: unknown; searchPosts: unknown; checkInvite(code: string): Promise<{ valid: boolean }>; listMyInvites(): Promise<{ code: string; usedAt: string | null }[]>; requestWorkEmailCode(workEmail: string): Promise<void>; verifyWorkEmailCode(workEmail: string, code: string): Promise<Me> } = {
     // ---- identity
     async requestEmailCode(workEmail: string, access?: { kind: 'invite'; code: string } | { kind: 'buyer' } | { kind: 'member' }) {
       const email = workEmail.trim().toLowerCase();
@@ -318,7 +383,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       const viewer = needMe();
       if (channel === 'company' && !viewer.companyId) return fail('not-verified');
       const rows = posts
-        .filter((r) => (channel === 'all' ? r.channel !== 'company' : r.channel === channel))
+        .filter((r) => !r.weekly && (channel === 'all' ? r.channel !== 'company' : r.channel === channel))
         .filter(canSee)
         .sort((a, b) => b.createdAt - a.createdAt);
       return wait(page(rows.map(toPost), cursor, limit));
@@ -329,11 +394,17 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       if (!r || !canSee(r)) { await wait(0); return fail('not-found'); }
       return wait(toPost(r));
     },
-    async createPost({ channel, body }) {
+    async createPost({ channel, body, poll }: { channel: ChannelId; body: string; poll?: { options: string[] } }) {
       const m = needRules();
       if (channel === 'company' && !m.companyId) return fail('not-verified');
       const text = checkText(body, 2000);
       const r: Row = { id: nid('p'), channel, body: text, authorId: m.id, companyId: m.companyId ?? '', createdAt: now(), likes: new Set(), baseLikes: 0, pending: /https?:\/\/|www\./i.test(text) };
+      if (poll) {
+        const opts = poll.options.map((o) => o.trim()).filter(Boolean);
+        if (opts.length < 2 || opts.length > 4 || opts.some((o) => o.length > 60)) return fail('filtered');
+        opts.forEach((o) => checkText(o, 60));
+        r.poll = { options: opts.map((text, i) => ({ id: `o${i + 1}`, text, base: 0 })), votes: new Map() };
+      }
       posts.push(r);
       return wait(toPost(r));
     },
@@ -341,7 +412,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
       const m = needMe();
       const i = posts.findIndex((p) => p.id === id);
       if (i < 0) return fail('not-found');
-      if (posts[i].authorId !== m.id && m.role !== 'moderator') return fail('forbidden');
+      if (posts[i].weekly || (posts[i].authorId !== m.id && m.role !== 'moderator')) return fail('forbidden');
       posts.splice(i, 1);
       await wait(0);
     },
@@ -375,7 +446,7 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
 
     // ---- safety
     async report(_target: ReportTarget, _reason: ReportReason, _note?: string) { needMe(); await wait(0); },
-    async blockUser(userId) { needMe(); blocked.add(userId); await wait(0); },
+    async blockUser(userId) { needMe(); if (userId === 'wrk') return fail('not-found'); blocked.add(userId); await wait(0); },
     async unblockUser(userId) { needMe(); blocked.delete(userId); await wait(0); },
     async listBlocked() { needMe(); return wait([...blocked].filter((id) => members.has(id)).map(author)); },
 
@@ -389,6 +460,58 @@ export function createMockCommunityApi(opts: MockOptions = {}): MockCommunityApi
     async exportMyData() {
       const m = needMe();
       return wait({ me: m, posts: posts.filter((p) => p.authorId === m.id).map(toPost), comments: comments.filter((c) => c.authorId === m.id).map(toComment) });
+    },
+    async listCompanies(q?: { search?: string; cursor?: string | null; limit?: number }) {
+      const viewer = needMe();
+      const term = (q?.search ?? '').trim().toLowerCase();
+      const rows = DIRECTORY.map((c) => toCompany(c, viewer))
+        .filter((c) => !term || c.name.toLowerCase().includes(term) || (c.nameEn ?? '').toLowerCase().includes(term) || (c.domain ?? '').includes(term) || (c.sector ?? '').toLowerCase().includes(term))
+        .sort((a, b) => Number(b.mine) - Number(a.mine) || b.memberCount - a.memberCount || a.name.localeCompare(b.name, 'ar'));
+      return wait(page(rows, q?.cursor, q?.limit ?? 30));
+    },
+    async getCompany(id: string) {
+      const viewer = needMe();
+      const c = DIRECTORY.find((x) => x.id === id);
+      await wait(0);
+      return c ? toCompany(c, viewer) : fail('not-found');
+    },
+    async votePoll(postId: string, optionId: string) {
+      const m = needMe();
+      const r = posts.find((p) => p.id === postId);
+      if (!r || !r.poll || !r.poll.options.some((o) => o.id === optionId)) return fail('not-found');
+      if (r.poll.votes.has(m.id)) return fail('forbidden');
+      r.poll.votes.set(m.id, optionId);
+      return wait(toPost(r));
+    },
+    async getWeeklyQuestion() {
+      needMe();
+      const r = posts.find((p) => p.weekly);
+      if (!r) return wait(null);
+      return wait({ id: 'w1', postId: r.id, text: r.body, endsAt: iso(t0 + 5 * DAY), answerCount: comments.filter((c) => c.postId === r.id && !blocked.has(c.authorId)).length });
+    },
+    async setSaved(postId: string, on: boolean) {
+      needMe();
+      const r = posts.find((p) => p.id === postId);
+      await wait(0);
+      if (!r || !canSee(r)) return fail('not-found');
+      saved.delete(postId);
+      if (on) saved.add(postId);
+    },
+    async listSavedPosts(q?: { cursor?: string | null; limit?: number }) {
+      needMe();
+      // Most recently saved first.
+      const order = [...saved].reverse();
+      const rows = order.map((id) => posts.find((p) => p.id === id)).filter((p): p is Row => !!p && canSee(p));
+      return wait(page(rows.map(toPost), q?.cursor, q?.limit));
+    },
+    async searchPosts(q: { query: string; cursor?: string | null; limit?: number }) {
+      needMe();
+      // Fold the letters people type interchangeably, so "اول" finds "أول".
+      const fold = (v: string) => v.toLowerCase().replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+      const term = fold(q.query.trim());
+      if (term.length < 2) return wait({ items: [], nextCursor: null });
+      const rows = posts.filter((p) => !p.weekly && canSee(p) && fold(p.body).includes(term)).sort((a, b) => b.createdAt - a.createdAt);
+      return wait(page(rows.map(toPost), q.cursor, q.limit));
     },
     async checkInvite(code: string) {
       await wait(0);

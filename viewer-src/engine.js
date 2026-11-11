@@ -455,11 +455,35 @@
     this.renderer.setPixelRatio(dpr); this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.w = w; this.h = h; this.place(); this.dirty = true;
   };
+  /* Furthest the piece gets from the view target at any turntable angle. Cached until the piece changes shape. */
+  Stage.prototype.reach = function (v) {
+    var fp = v.footprint || [0, 0], key = v.radius + '|' + fp[0] + '|' + fp[1] + '|' + v.target.join(',');
+    if (this._reachKey === key && this._reachFor === this.inst) return this._reach;
+    var r = v.radius;
+    try {
+      var yaw = this.turn.rotation.y; this.turn.rotation.y = 0; this.turn.updateMatrixWorld(true);
+      var b = new T.Box3().setFromObject(this.inst.group);
+      this.turn.rotation.y = yaw; this.turn.updateMatrixWorld(true);
+      if (!b.isEmpty()) {
+        var rx = Math.max(Math.abs(b.min.x), Math.abs(b.max.x)), rz = Math.max(Math.abs(b.min.z), Math.abs(b.max.z));
+        var side = Math.sqrt(rx * rx + rz * rz) + Math.sqrt(v.target[0] * v.target[0] + v.target[2] * v.target[2]);
+        var up = Math.max(Math.abs(b.max.y - v.target[1]), Math.abs(b.min.y - v.target[1]));
+        r = Math.sqrt(side * side + up * up);
+      }
+    } catch (e) {}
+    this._reachKey = key; this._reachFor = this.inst; this._reach = r; return r;
+  };
   /* Camera sits on a sphere around the view target; the product turns on the turntable. */
   Stage.prototype.place = function () {
     var v = this.view || { radius: 100, target: [0, 20, 0] }, cam = this.camera;
     var vfov = cam.fov * Math.PI / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * cam.aspect), f = Math.min(vfov, hfov);
     var dist = (v.radius * (this.zoom || 1)) / Math.sin(f / 2) * 1.04;
+    /* Tall, narrow stage (an unfolded phone, a split pane): the authored radius is tuned for a wide stage,
+       so a long piece ran off the sides. Fit the width to the piece's real reach around the turntable. */
+    if (hfov < vfov && this.inst && v === this.inst.view) {
+      var reach = this.reach(v);
+      if (reach > v.radius) dist = Math.max(dist, (reach * (this.zoom || 1)) / Math.sin(hfov / 2) * 1.04);
+    }
     var tx = v.target[0], ty = v.target[1], tz = v.target[2], p = this.pitch;
     cam.position.set(tx, ty + Math.sin(p) * dist, tz + Math.cos(p) * dist); cam.lookAt(tx, ty + (v.lift || 0), tz);
     cam.near = Math.max(1, dist - v.radius * 4); cam.far = dist + v.radius * 6; cam.updateProjectionMatrix();
